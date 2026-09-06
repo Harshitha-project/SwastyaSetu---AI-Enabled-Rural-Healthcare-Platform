@@ -1,0 +1,238 @@
+// API Configuration
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+
+// Role Labels
+export const ROLE_LABELS: Record<string, string> = {
+  PATIENT: 'Patient',
+  DOCTOR: 'Doctor',
+  HEALTH_WORKER: 'Healthcare Worker',
+  ADMIN: 'Administrator',
+}
+
+// Risk Level Colors
+export const RISK_COLORS = {
+  LOW: {
+    bg: 'bg-green-100',
+    text: 'text-green-800',
+    border: 'border-green-300',
+    dot: 'bg-green-500',
+  },
+  MODERATE: {
+    bg: 'bg-yellow-100',
+    text: 'text-yellow-800',
+    border: 'border-yellow-300',
+    dot: 'bg-yellow-500',
+  },
+  HIGH: {
+    bg: 'bg-red-100',
+    text: 'text-red-800',
+    border: 'border-red-300',
+    dot: 'bg-red-500',
+  },
+}
+
+// Appointment Status Colors
+export const APPOINTMENT_STATUS_COLORS = {
+  PENDING: {
+    bg: 'bg-yellow-100',
+    text: 'text-yellow-800',
+  },
+  CONFIRMED: {
+    bg: 'bg-blue-100',
+    text: 'text-blue-800',
+  },
+  COMPLETED: {
+    bg: 'bg-green-100',
+    text: 'text-green-800',
+  },
+  CANCELLED: {
+    bg: 'bg-gray-100',
+    text: 'text-gray-800',
+  },
+  NO_SHOW: {
+    bg: 'bg-red-100',
+    text: 'text-red-800',
+  },
+}
+
+// Metric Status Colors
+export const METRIC_STATUS_COLORS = {
+  NORMAL: {
+    bg: 'bg-green-100',
+    text: 'text-green-700',
+    icon: 'text-green-500',
+  },
+  LOW: {
+    bg: 'bg-blue-100',
+    text: 'text-blue-700',
+    icon: 'text-blue-500',
+  },
+  HIGH: {
+    bg: 'bg-orange-100',
+    text: 'text-orange-700',
+    icon: 'text-orange-500',
+  },
+  CRITICAL: {
+    bg: 'bg-red-100',
+    text: 'text-red-700',
+    icon: 'text-red-500',
+  },
+}
+
+// Facility Types
+export const FACILITY_TYPES = {
+  PHC: 'Primary Health Centre',
+  CHC: 'Community Health Centre',
+  DISTRICT_HOSPITAL: 'District Hospital',
+  GOVERNMENT_HOSPITAL: 'Government Hospital',
+  RURAL_HOSPITAL: 'Rural Hospital',
+  SUB_CENTER: 'Sub Centre',
+}
+
+// Blood Groups
+export const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+
+// Days of Week
+export const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+// Maharashtra Districts
+export const MAHARASHTRA_DISTRICTS = [
+  'Ahmednagar', 'Akola', 'Amravati', 'Aurangabad', 'Beed', 'Bhandara', 'Buldhana',
+  'Chandrapur', 'Dhule', 'Gadchiroli', 'Gondia', 'Hingoli', 'Jalgaon', 'Jalna',
+  'Kolhapur', 'Latur', 'Mumbai City', 'Mumbai Suburban', 'Nagpur', 'Nanded',
+  'Nandurbar', 'Nashik', 'Osmanabad', 'Palghar', 'Parbhani', 'Pune', 'Raigad',
+  'Ratnagiri', 'Sangli', 'Satara', 'Sindhudurg', 'Solapur', 'Thane', 'Wardha',
+  'Washim', 'Yavatmal'
+]
+
+// Common Symptoms
+export const COMMON_SYMPTOMS = [
+  'Fever',
+  'Cough',
+  'Cold',
+  'Headache',
+  'Body Pain',
+  'Fatigue',
+  'Nausea',
+  'Vomiting',
+  'Diarrhea',
+  'Chest Pain',
+  'Shortness of Breath',
+  'Dizziness',
+  'Loss of Appetite',
+  'Sore Throat',
+  'Runny Nose',
+  'Joint Pain',
+  'Muscle Pain',
+  'Abdominal Pain',
+  'Back Pain',
+  'Skin Rash',
+  'Swelling',
+  'Weakness',
+  'Weight Loss',
+  'Difficulty Sleeping',
+  'Anxiety',
+]
+
+// Medical History Options
+export const MEDICAL_HISTORY_OPTIONS = [
+  'Diabetes',
+  'Hypertension',
+  'Heart Disease',
+  'Asthma',
+  'Thyroid Disorder',
+  'Kidney Disease',
+  'Liver Disease',
+  'Cancer',
+  'Tuberculosis',
+  'HIV/AIDS',
+  'Epilepsy',
+  'Arthritis',
+  'Depression',
+  'Anxiety Disorder',
+  'None',
+]
+
+// Vital Normal Ranges
+export const VITAL_RANGES = {
+  HEART_RATE: {
+    min: 60,
+    max: 100,
+    unit: 'bpm',
+    label: 'Heart Rate',
+  },
+  BLOOD_PRESSURE: {
+    systolic: { min: 90, max: 120 },
+    diastolic: { min: 60, max: 80 },
+    unit: 'mmHg',
+    label: 'Blood Pressure',
+  },
+  SPO2: {
+    min: 95,
+    max: 100,
+    unit: '%',
+    label: 'Oxygen Saturation',
+  },
+  TEMPERATURE: {
+    min: 97,
+    max: 99,
+    unit: '°F',
+    label: 'Temperature',
+  },
+  GLUCOSE: {
+    min: 70,
+    max: 140,
+    unit: 'mg/dL',
+    label: 'Blood Glucose',
+  },
+  WEIGHT: {
+    min: 0,
+    max: 500,
+    unit: 'kg',
+    label: 'Weight',
+  },
+}
+
+// Reminder Frequencies
+export const REMINDER_FREQUENCIES = {
+  ONCE_DAILY: { label: 'Once Daily', times: 1 },
+  TWICE_DAILY: { label: 'Twice Daily', times: 2 },
+  THRICE_DAILY: { label: 'Three Times Daily', times: 3 },
+  FOUR_TIMES_DAILY: { label: 'Four Times Daily', times: 4 },
+  WEEKLY: { label: 'Weekly', times: 1 },
+  AS_NEEDED: { label: 'As Needed', times: 0 },
+}
+
+// Specializations
+export const DOCTOR_SPECIALIZATIONS = [
+  'General Physician',
+  'Pediatrician',
+  'Gynecologist',
+  'Cardiologist',
+  'Dermatologist',
+  'Orthopedic',
+  'ENT Specialist',
+  'Ophthalmologist',
+  'Psychiatrist',
+  'Neurologist',
+  'Pulmonologist',
+  'Gastroenterologist',
+  'Urologist',
+  'Endocrinologist',
+  'Diabetologist',
+]
+
+// AI Disclaimer
+export const AI_DISCLAIMER = `This is an AI-assisted preliminary risk assessment and is NOT a medical diagnosis. 
+The results are generated by a machine learning model trained on health data patterns and should be used 
+for informational purposes only. Please consult a qualified healthcare professional for proper medical 
+evaluation and advice. In case of emergency, contact emergency services immediately.`
+
+// App Info
+export const APP_INFO = {
+  name: 'SwasthyaSetu',
+  tagline: 'Healthcare Beyond Distance',
+  version: '1.0.0',
+  organization: 'Government of Maharashtra',
+  problemStatementId: 'PS 26133',
+}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="32" fill="#0d9488"/>
+  <path d="M96 32c-35.3 0-64 28.7-64 64s28.7 64 64 64 64-28.7 64-64-28.7-64-64-64zm0 16c26.5 0 48 21.5 48 48s-21.5 48-48 48-48-21.5-48-48 21.5-48 48-48z" fill="#fff"/>
+  <path d="M96 56c-22.1 0-40 17.9-40 40s17.9 40 40 40 40-17.9 40-40-17.9-40-40-40zm-8 20h16v16h16v16h-16v16H88v-16H72V92h16V76z" fill="#fff"/>
+  <text x="96" y="160" text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="#fff">SwasthyaSetu</text>
+</svg>
