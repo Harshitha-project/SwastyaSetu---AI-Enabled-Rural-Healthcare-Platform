@@ -11,6 +11,7 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<void>
   logout: () => Promise<void>
   updateUser: (user: User) => void
+  switchRole: (role: 'PATIENT' | 'DOCTOR' | 'HEALTH_WORKER' | 'ADMIN') => void
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -63,6 +64,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const switchRole = useCallback((role: 'PATIENT' | 'DOCTOR' | 'HEALTH_WORKER' | 'ADMIN') => {
+    let mockUser: User
+    if (role === 'DOCTOR') {
+      mockUser = {
+        id: 'demo-doctor-1',
+        name: 'Dr. Priya Sharma',
+        firstName: 'Priya',
+        lastName: 'Sharma',
+        email: 'doctor@swasthyasetu.org',
+        phone: '+91 98220 54321',
+        role: 'DOCTOR',
+        isVerified: true,
+        preferredLanguage: 'mr',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    } else if (role === 'HEALTH_WORKER') {
+      mockUser = {
+        id: 'demo-worker-1',
+        name: 'Sunita Kadam (ASHA)',
+        firstName: 'Sunita',
+        lastName: 'Kadam',
+        email: 'worker@swasthyasetu.org',
+        phone: '+91 98220 98765',
+        role: 'HEALTH_WORKER',
+        isVerified: true,
+        preferredLanguage: 'mr',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    } else if (role === 'ADMIN') {
+      mockUser = {
+        id: 'demo-admin-1',
+        name: 'Health Admin',
+        firstName: 'State',
+        lastName: 'Admin',
+        email: 'admin@swasthyasetu.org',
+        phone: '+91 98220 11111',
+        role: 'ADMIN',
+        isVerified: true,
+        preferredLanguage: 'mr',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    } else {
+      mockUser = {
+        id: 'demo-patient-1',
+        name: 'Ramesh Patil',
+        firstName: 'Ramesh',
+        lastName: 'Patil',
+        email: 'patient@swasthyasetu.org',
+        phone: '+91 98220 12345',
+        role: 'PATIENT',
+        isVerified: true,
+        preferredLanguage: 'mr',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    }
+
+    const authData = { user: mockUser, accessToken: `mock-token-${role.toLowerCase()}-${Date.now()}` }
+    storage.set(AUTH_STORAGE_KEY, authData)
+    setUser(mockUser)
+  }, [])
+
   const register = useCallback(async (data: RegisterData) => {
     setIsLoading(true)
     try {
@@ -105,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     updateUser,
+    switchRole,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

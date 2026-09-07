@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../hooks/useAuth';
 import { Sidebar } from './Sidebar';
+import { MobileBottomNav } from './MobileBottomNav';
+import { IncomingCallModal } from '../teleconsultation/IncomingCallModal';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -27,8 +29,9 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = () => {
   const { i18n } = useTranslation();
-  const { user, logout } = useAuth();
+  const { user, logout, switchRole } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -75,6 +78,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = () => {
   const handleLanguageChange = (langCode: string) => {
     i18n.changeLanguage(langCode);
     localStorage.setItem('language', langCode);
+    localStorage.setItem('i18nextLng', langCode);
     setLangMenuOpen(false);
   };
 
@@ -268,6 +272,73 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = () => {
                         Settings
                       </button>
                     </div>
+                    <div className="px-3 py-2 border-t border-gray-100 bg-gray-50/70">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                        Switch Active Role (Tab Isolated)
+                      </p>
+                      <div className="grid grid-cols-2 gap-1 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            switchRole?.('PATIENT');
+                            setUserMenuOpen(false);
+                            navigate('/patient');
+                          }}
+                          className={`px-2 py-1.5 rounded-lg text-left transition-colors font-medium flex items-center gap-1.5 ${
+                            user?.role === 'PATIENT'
+                              ? 'bg-primary-100 text-primary-800 font-semibold'
+                              : 'hover:bg-gray-200/70 text-gray-700'
+                          }`}
+                        >
+                          <span>👤</span> Patient
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            switchRole?.('DOCTOR');
+                            setUserMenuOpen(false);
+                            navigate('/doctor');
+                          }}
+                          className={`px-2 py-1.5 rounded-lg text-left transition-colors font-medium flex items-center gap-1.5 ${
+                            user?.role === 'DOCTOR'
+                              ? 'bg-primary-100 text-primary-800 font-semibold'
+                              : 'hover:bg-gray-200/70 text-gray-700'
+                          }`}
+                        >
+                          <span>🩺</span> Doctor
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            switchRole?.('HEALTH_WORKER');
+                            setUserMenuOpen(false);
+                            navigate('/worker');
+                          }}
+                          className={`px-2 py-1.5 rounded-lg text-left transition-colors font-medium flex items-center gap-1.5 ${
+                            user?.role === 'HEALTH_WORKER'
+                              ? 'bg-primary-100 text-primary-800 font-semibold'
+                              : 'hover:bg-gray-200/70 text-gray-700'
+                          }`}
+                        >
+                          <span>🛡️</span> Worker
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            switchRole?.('ADMIN');
+                            setUserMenuOpen(false);
+                            navigate('/admin');
+                          }}
+                          className={`px-2 py-1.5 rounded-lg text-left transition-colors font-medium flex items-center gap-1.5 ${
+                            user?.role === 'ADMIN'
+                              ? 'bg-primary-100 text-primary-800 font-semibold'
+                              : 'hover:bg-gray-200/70 text-gray-700'
+                          }`}
+                        >
+                          <span>⚙️</span> Admin
+                        </button>
+                      </div>
+                    </div>
                     <div className="border-t border-gray-100 py-1">
                       <button
                         onClick={logout}
@@ -331,7 +402,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = () => {
         </AnimatePresence>
 
         {/* Main Content */}
-        <main className="flex-1 min-h-[calc(100vh-4rem)] lg:ml-0">
+        <main className="flex-1 min-h-[calc(100vh-4rem)] lg:ml-0 pb-20 lg:pb-6">
           <div className="p-4 lg:p-6">
             <motion.div
               key={location.pathname}
@@ -344,6 +415,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = () => {
           </div>
         </main>
       </div>
+
+      {/* Mobile Phone Native-Style Bottom Navigation */}
+      <MobileBottomNav />
+
+      {/* Global Incoming Call Alert Modal */}
+      <IncomingCallModal />
     </div>
   );
 };

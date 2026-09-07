@@ -20,6 +20,7 @@ export const Navbar: React.FC = () => {
   const handleLanguageChange = (langCode: string) => {
     i18n.changeLanguage(langCode);
     localStorage.setItem('language', langCode);
+    localStorage.setItem('i18nextLng', langCode);
     setLangMenuOpen(false);
   };
 

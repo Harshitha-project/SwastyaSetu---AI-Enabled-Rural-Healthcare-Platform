@@ -207,7 +207,7 @@ export const recordsService = {
       patientId: rx.patientId || 'pat-001',
       doctorId: rx.doctorId || 'doc-001',
       appointmentId: rx.appointmentId || 'apt-101',
-      diagnosis: rx.diagnosis || 'Clinical follow-up',
+      diagnosis: rx.diagnosis || 'Clinical teleconsultation prescription',
       medications: rx.medications || [],
       notes: rx.notes,
       followUpDate: rx.followUpDate,
@@ -216,6 +216,41 @@ export const recordsService = {
     }
     all.unshift(newRx)
     saveLocalPrescriptions(all)
+
+    // Auto-generate reminders for patient dashboard from prescribed medications
+    if (newRx.medications && newRx.medications.length > 0) {
+      const currentReminders = getLocalReminders()
+      newRx.medications.forEach((med, idx) => {
+        const reminder: MedicineReminder = {
+          id: `rem-${Date.now()}-${idx}`,
+          _id: `rem-${Date.now()}-${idx}`,
+          patientId: newRx.patientId,
+          medicineName: med.name,
+          dosage: med.dosage || '1 tablet',
+          frequency: med.frequency?.toLowerCase().includes('twice') ? 'TWICE_DAILY' : 'ONCE_DAILY',
+          timeSlots: ['09:00 AM', '09:00 PM'],
+          startDate: new Date().toISOString(),
+          endDate: new Date(Date.now() + 7 * 86400000).toISOString(),
+          instructions: med.instructions || 'Take strictly as prescribed',
+          isActive: true,
+          history: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+        currentReminders.unshift(reminder)
+      })
+      saveLocalReminders(currentReminders)
+    }
+
+    // Broadcast sync event across tabs & components
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('swasthyasetu:records_sync', { detail: newRx }))
+      try {
+        const channel = new BroadcastChannel('swasthyasetu_records_bus')
+        channel.postMessage({ type: 'NEW_PRESCRIPTION', prescription: newRx })
+      } catch {}
+    }
+
     return newRx
   },
 

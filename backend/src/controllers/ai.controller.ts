@@ -80,8 +80,9 @@ export async function createAssessment(req: AuthRequest, res: Response): Promise
     }
 
     // Determine risk level from AI result
-    const riskLevel = determineRiskLevel(aiResult.risk_score || aiResult.riskScore)
-    const riskScore = aiResult.risk_score || aiResult.riskScore || 0
+    const riskLevel = aiResult.riskLevel || determineRiskLevel(aiResult.risk_score || aiResult.riskScore)
+    const rawScore = aiResult.riskScore !== undefined ? aiResult.riskScore : (aiResult.risk_score !== undefined ? aiResult.risk_score : 0)
+    const riskScore = rawScore <= 1.0 && rawScore > 0 ? Math.round(rawScore * 100) : Math.round(rawScore)
 
     // Save assessment to database
     const assessment = await AIAssessment.create({
@@ -99,8 +100,8 @@ export async function createAssessment(req: AuthRequest, res: Response): Promise
       riskScore,
       riskLevel,
       indicators: aiResult.indicators || [],
-      recommendation: aiResult.recommendations?.[0] || generateRecommendations(riskLevel)[0],
-      aiModelVersion: aiResult.model_version || '1.0-fallback',
+      recommendation: aiResult.recommendation || aiResult.recommendations?.[0] || generateRecommendations(riskLevel)[0],
+      aiModelVersion: aiResult.modelVersion || aiResult.model_version || '2.0.0-ml-ensemble',
       createdBy: req.user.userId,
     })
 
@@ -128,8 +129,11 @@ export async function createAssessment(req: AuthRequest, res: Response): Promise
         riskLevel,
         riskScore,
         indicators: assessment.indicators,
-        recommendations: assessment.recommendation,
-        possibleConditions: [],
+        recommendation: assessment.recommendation,
+        recommendations: [assessment.recommendation],
+        possibleConditions: aiResult.possibleConditions || [],
+        probabilities: aiResult.probabilities || null,
+        modelVersion: assessment.aiModelVersion,
         createdAt: assessment.createdAt,
       },
       disclaimer: {

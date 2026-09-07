@@ -83,6 +83,43 @@ export const authService = {
       updatedAt: new Date().toISOString(),
     }
 
+    // If a doctor registered, register their clinical profile so patients can see and choose them
+    if (data.role === 'DOCTOR') {
+      try {
+        const docName = data.name.startsWith('Dr.') ? data.name : `Dr. ${data.name}`
+        const customDoc = {
+          id: `doc-${newUser.id}`,
+          _id: `doc-${newUser.id}`,
+          userId: newUser.id,
+          specialization: 'General Medicine & Teleconsultation',
+          qualification: 'MBBS, MD',
+          registrationNumber: `MMC-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
+          experience: 6,
+          consultationFee: 250,
+          teleconsultationEnabled: true,
+          rating: 5.0,
+          totalConsultations: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          availability: [
+            { day: 'Monday', startTime: '09:00 AM', endTime: '01:00 PM', maxAppointments: 10 },
+            { day: 'Wednesday', startTime: '09:00 AM', endTime: '01:00 PM', maxAppointments: 10 },
+            { day: 'Friday', startTime: '02:00 PM', endTime: '06:00 PM', maxAppointments: 10 },
+          ],
+          user: {
+            ...newUser,
+            name: docName,
+          },
+        }
+        const existing = localStorage.getItem('swasthyasetu_custom_doctors')
+        const list = existing ? JSON.parse(existing) : []
+        list.unshift(customDoc)
+        localStorage.setItem('swasthyasetu_custom_doctors', JSON.stringify(list))
+      } catch (e) {
+        console.warn('Could not cache registered doctor', e)
+      }
+    }
+
     return {
       user: newUser,
       accessToken: `mock-token-${Date.now()}`,
@@ -108,11 +145,16 @@ export const authService = {
     } catch (err) {
       // Fallback
     }
-    const stored = localStorage.getItem('swasthyasetu_auth')
+    const stored = sessionStorage.getItem('swasthyasetu_auth') || localStorage.getItem('swasthyasetu_auth')
     if (stored) {
       try {
         const parsed = JSON.parse(stored)
-        if (parsed.user) return { user: parsed.user }
+        if (parsed.user) {
+          try {
+            sessionStorage.setItem('swasthyasetu_auth', stored)
+          } catch {}
+          return { user: parsed.user }
+        }
       } catch {}
     }
     throw new Error('No active session')

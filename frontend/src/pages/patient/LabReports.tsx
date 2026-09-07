@@ -53,7 +53,12 @@ import {
   ArrowDown,
   Printer,
   ExternalLink,
+  Upload,
+  Plus,
+  FileUp,
+  FileCheck,
 } from 'lucide-react'
+import { downloadLabReportPdf } from '../../utils/pdfGenerator'
 
 export default function LabReports() {
   const { i18n } = useTranslation()
@@ -70,6 +75,22 @@ export default function LabReports() {
   const [trendData, setTrendData] = useState<{ date: string; value: number }[]>([])
   const [showTrendDialog, setShowTrendDialog] = useState(false)
   const [selectedParameter, setSelectedParameter] = useState<string>('')
+
+  // Upload report state
+  const [showUploadDialog, setShowUploadDialog] = useState(false)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadFormData, setUploadFormData] = useState({
+    testName: '',
+    category: 'blood' as LabReport['category'],
+    labName: '',
+    date: new Date().toISOString().split('T')[0],
+    parameter: '',
+    value: '',
+    unit: '',
+    normalRange: '',
+    notes: '',
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -247,6 +268,74 @@ export default function LabReports() {
     setShowTrendDialog(true)
   }
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setUploadFile(file)
+      if (!uploadFormData.testName) {
+        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ')
+        setUploadFormData(prev => ({ ...prev, testName: nameWithoutExt }))
+      }
+    }
+  }
+
+  const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!uploadFormData.testName.trim()) return
+
+    setIsSubmitting(true)
+    try {
+      const results: LabResult[] = uploadFormData.parameter ? [
+        {
+          parameter: uploadFormData.parameter,
+          parameterMr: uploadFormData.parameter,
+          value: uploadFormData.value || 'Normal',
+          unit: uploadFormData.unit || '-',
+          normalRange: uploadFormData.normalRange || 'Normal',
+          status: 'normal',
+        }
+      ] : [
+        {
+          parameter: uploadFormData.testName,
+          parameterMr: uploadFormData.testName,
+          value: 'Report Attached',
+          unit: '-',
+          normalRange: 'Normal',
+          status: 'normal',
+        }
+      ]
+
+      const newReport = await healthRecordsService.addLabReport({
+        patientId: 'pat-001',
+        testName: uploadFormData.testName,
+        category: uploadFormData.category,
+        labName: uploadFormData.labName || 'Local Pathology Lab',
+        date: uploadFormData.date,
+        results,
+        notes: uploadFormData.notes || (uploadFile ? `File attached: ${uploadFile.name}` : 'Manually recorded report'),
+      })
+
+      setReports(prev => [newReport, ...prev])
+      setShowUploadDialog(false)
+      setUploadFile(null)
+      setUploadFormData({
+        testName: '',
+        category: 'blood',
+        labName: '',
+        date: new Date().toISOString().split('T')[0],
+        parameter: '',
+        value: '',
+        unit: '',
+        normalRange: '',
+        notes: '',
+      })
+    } catch (err) {
+      console.error('Failed to add lab report:', err)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const handleViewDetails = (report: LabReport) => {
     setSelectedReport(report)
     setShowDetailDialog(true)
@@ -288,14 +377,31 @@ export default function LabReports() {
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             {isMarathi
-              ? 'सर्व निदान चाचण्या आणि परिणाम'
-              : 'All diagnostic tests and results'}
+              ? 'सर्व निदान चाचण्या, अहवाल डाउनलोड आणि मॅन्युअल अपलोड'
+              : 'Diagnostic tests, instant PDF download & manual PC report uploads'}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <Download className="w-4 h-4" />
-            {isMarathi ? 'एक्सपोर्ट' : 'Export All'}
+          <Button
+            onClick={() => setShowUploadDialog(true)}
+            size="sm"
+            className="gap-1.5 bg-primary text-white shadow-sm hover:bg-primary/90"
+          >
+            <Upload className="w-4 h-4" />
+            {isMarathi ? 'संगणकावरून अहवाल जोडा' : 'Add Report from PC'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => {
+              if (reports.length > 0) {
+                downloadLabReportPdf(reports[0])
+              }
+            }}
+          >
+            <Download className="w-4 h-4 text-primary" />
+            {isMarathi ? 'नवीनतम PDF' : 'Download Latest PDF'}
           </Button>
         </div>
       </div>
@@ -540,17 +646,29 @@ export default function LabReports() {
 
                             {/* Actions */}
                             <div className="flex justify-end gap-2 mt-4">
-                              <Button variant="outline" size="sm" className="gap-1.5">
-                                <Download className="w-4 h-4" />
-                                {isMarathi ? 'डाउनलोड' : 'Download'}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors font-medium"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  downloadLabReportPdf(report)
+                                }}
+                              >
+                                <Download className="w-4 h-4 text-primary" />
+                                {isMarathi ? 'अहवाल PDF डाउनलोड' : 'Download Report PDF'}
                               </Button>
-                              <Button variant="outline" size="sm" className="gap-1.5">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  window.print()
+                                }}
+                              >
                                 <Printer className="w-4 h-4" />
                                 {isMarathi ? 'प्रिंट' : 'Print'}
-                              </Button>
-                              <Button variant="outline" size="sm" className="gap-1.5">
-                                <Share2 className="w-4 h-4" />
-                                {isMarathi ? 'शेअर' : 'Share'}
                               </Button>
                             </div>
                           </div>
@@ -662,6 +780,167 @@ export default function LabReports() {
           </div>
         </div>
       </Card>
+      {/* Upload Dialog */}
+      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <Upload className="w-5 h-5 text-primary" />
+              {isMarathi ? 'संगणकावरून लॅब अहवाल जोडा' : 'Upload Lab Report from PC'}
+            </DialogTitle>
+            <DialogDescription>
+              {isMarathi
+                ? 'आपल्या संगणकावरून PDF किंवा इमेज फाइल निवडा आणि अहवाल तपशील भरा.'
+                : 'Select a PDF or image file from your PC and enter the diagnostic parameters.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleUploadSubmit} className="space-y-4 pt-2">
+            {/* File Dropzone */}
+            <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-primary/50 transition-colors bg-gray-50/50">
+              <input
+                type="file"
+                id="lab-file-upload"
+                className="hidden"
+                accept=".pdf,.png,.jpg,.jpeg"
+                onChange={handleFileSelect}
+              />
+              <label htmlFor="lab-file-upload" className="cursor-pointer block">
+                {uploadFile ? (
+                  <div className="flex items-center justify-center gap-2 text-primary font-medium text-sm">
+                    <FileCheck className="w-6 h-6 text-emerald-600" />
+                    <span>{uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)</span>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <FileUp className="w-8 h-8 text-gray-400 mx-auto mb-1" />
+                    <p className="text-sm font-semibold text-gray-700">
+                      {isMarathi ? 'येथे क्लिक करून फाइल निवडा' : 'Click to choose file from PC'}
+                    </p>
+                    <p className="text-xs text-gray-400">PDF, PNG, JPG (up to 10MB)</p>
+                  </div>
+                )}
+              </label>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-700">
+                  {isMarathi ? 'चाचणीचे नाव *' : 'Test Name *'}
+                </label>
+                <Input
+                  required
+                  placeholder={isMarathi ? 'उदा. Complete Blood Count' : 'e.g. Complete Blood Count'}
+                  value={uploadFormData.testName}
+                  onChange={(e) => setUploadFormData(prev => ({ ...prev, testName: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-700">
+                  {isMarathi ? 'प्रवर्ग' : 'Category'}
+                </label>
+                <Select
+                  value={uploadFormData.category}
+                  onValueChange={(val: any) => setUploadFormData(prev => ({ ...prev, category: val }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="blood">{isMarathi ? 'रक्त चाचणी' : 'Blood Test'}</SelectItem>
+                    <SelectItem value="urine">{isMarathi ? 'लघवी चाचणी' : 'Urine Test'}</SelectItem>
+                    <SelectItem value="imaging">{isMarathi ? 'इमेजिंग / एक्स-रे' : 'Imaging / X-Ray'}</SelectItem>
+                    <SelectItem value="cardiac">{isMarathi ? 'हृदय (कार्डियाक)' : 'Cardiac'}</SelectItem>
+                    <SelectItem value="thyroid">{isMarathi ? 'थायरॉइड' : 'Thyroid'}</SelectItem>
+                    <SelectItem value="diabetes">{isMarathi ? 'मधुमेह' : 'Diabetes'}</SelectItem>
+                    <SelectItem value="other">{isMarathi ? 'इतर' : 'Other'}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-700">
+                  {isMarathi ? 'लॅब / रुग्णालयाचे नाव' : 'Lab / Diagnostic Center'}
+                </label>
+                <Input
+                  placeholder={isMarathi ? 'उदा. Suburban Diagnostics' : 'e.g. City Pathology Lab'}
+                  value={uploadFormData.labName}
+                  onChange={(e) => setUploadFormData(prev => ({ ...prev, labName: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-700">
+                  {isMarathi ? 'तारीख' : 'Date'}
+                </label>
+                <Input
+                  type="date"
+                  value={uploadFormData.date}
+                  onChange={(e) => setUploadFormData(prev => ({ ...prev, date: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-700">
+                  {isMarathi ? 'मापदंड (Parameter)' : 'Parameter'}
+                </label>
+                <Input
+                  placeholder="e.g. Hemoglobin"
+                  value={uploadFormData.parameter}
+                  onChange={(e) => setUploadFormData(prev => ({ ...prev, parameter: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-700">
+                  {isMarathi ? 'मूल्य (Value)' : 'Value'}
+                </label>
+                <Input
+                  placeholder="e.g. 13.5"
+                  value={uploadFormData.value}
+                  onChange={(e) => setUploadFormData(prev => ({ ...prev, value: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-700">
+                  {isMarathi ? 'एकक (Unit)' : 'Unit'}
+                </label>
+                <Input
+                  placeholder="e.g. g/dL"
+                  value={uploadFormData.unit}
+                  onChange={(e) => setUploadFormData(prev => ({ ...prev, unit: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-700">
+                {isMarathi ? 'टिप्पणी / शेरा' : 'Clinical Notes / Summary'}
+              </label>
+              <Input
+                placeholder={isMarathi ? 'वैद्यकीय शेरा किंवा संदर्भ' : 'Observations, doctor notes, or findings'}
+                value={uploadFormData.notes}
+                onChange={(e) => setUploadFormData(prev => ({ ...prev, notes: e.target.value }))}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setShowUploadDialog(false)}>
+                {isMarathi ? 'रद्द करा' : 'Cancel'}
+              </Button>
+              <Button type="submit" disabled={isSubmitting || !uploadFormData.testName.trim()}>
+                {isSubmitting
+                  ? (isMarathi ? 'जतन करत आहे...' : 'Saving...')
+                  : (isMarathi ? 'अहवाल जतन करा' : 'Save Report')}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }

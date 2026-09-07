@@ -13,6 +13,7 @@ The model uses a combination of:
 import os
 import joblib
 import numpy as np
+import pandas as pd
 from typing import Dict, List, Optional, Any
 
 # Disclaimer that must be included with all predictions
@@ -325,7 +326,95 @@ class HealthRiskPredictor:
             return ("Based on the current assessment, no immediate health concerns are indicated. "
                    "Continue monitoring your health and maintain regular check-ups. "
                    "If symptoms persist or worsen, please consult a healthcare professional.")
-    
+
+    def _predict_ml(
+        self,
+        age: int,
+        gender: str,
+        symptoms: List[str],
+        vitals: Dict[str, Any],
+        medical_history: List[str]
+    ) -> Dict[str, Any]:
+        """
+        Execute statistical ML inference using trained ensemble model.
+        """
+        feature_cols = self.model.get("feature_columns", [])
+        risk_clf = self.model.get("risk_classifier")
+        cond_clf = self.model.get("condition_classifier")
+
+        # Build feature vector
+        row = {col: 0 for col in feature_cols}
+        row["age"] = age
+        row["gender_M"] = 1 if gender.upper() == "M" else 0
+        row["gender_F"] = 1 if gender.upper() == "F" else 0
+
+        # Medical history flags
+        history_lower = [h.lower() for h in medical_history]
+        row["history_diabetes"] = 1 if any("diabet" in h for h in history_lower) else 0
+        row["history_hypertension"] = 1 if any("hyper" in h or "bp" in h for h in history_lower) else 0
+        row["history_asthma"] = 1 if any("asthma" in h or "breath" in h for h in history_lower) else 0
+
+        # Vitals extraction
+        row["vital_heart_rate"] = vitals.get("heartRate") or 75
+        bp = vitals.get("bloodPressure") or {}
+        row["vital_systolic_bp"] = bp.get("systolic") if bp else (vitals.get("systolic") or 120)
+        row["vital_diastolic_bp"] = bp.get("diastolic") if bp else (vitals.get("diastolic") or 80)
+        row["vital_temperature"] = vitals.get("temperature") or 98.6
+        row["vital_spo2"] = vitals.get("spo2") or 98
+        row["vital_glucose"] = vitals.get("glucose") or 100
+
+        # Symptoms mapping
+        symptoms_clean = [s.strip().lower() for s in symptoms]
+        for s in symptoms_clean:
+            col_name = f"symptom_{s}"
+            if col_name in row:
+                row[col_name] = 1
+
+        df_input = pd.DataFrame([row])[feature_cols]
+
+        # 1. Risk Prediction & Class Probabilities
+        risk_classes = list(risk_clf.classes_)
+        risk_probs = risk_clf.predict_proba(df_input)[0]
+        prob_dict = dict(zip(risk_classes, risk_probs))
+        pred_risk_level = risk_clf.predict(df_input)[0]
+
+        # Continuous risk score (0.0 to 1.0)
+        prob_high = prob_dict.get("HIGH", 0.0)
+        prob_mod = prob_dict.get("MODERATE", 0.0)
+        prob_low = prob_dict.get("LOW", 0.0)
+        risk_score = round(float(prob_high * 0.95 + prob_mod * 0.55 + prob_low * 0.10), 2)
+
+        # 2. Predicted Conditions with Confidence Scores
+        possible_conditions = []
+        if cond_clf:
+            cond_classes = list(cond_clf.classes_)
+            cond_probs = cond_clf.predict_proba(df_input)[0]
+            sorted_indices = np.argsort(cond_probs)[::-1][:3]
+            for idx in sorted_indices:
+                if cond_probs[idx] > 0.08:
+                    possible_conditions.append({
+                        "condition": cond_classes[idx],
+                        "confidence": round(float(cond_probs[idx]), 3)
+                    })
+
+        # 3. Clinical Indicators
+        vital_indicators, _ = self._analyze_vitals(vitals)
+        symptom_indicators, _ = self._analyze_symptoms(symptoms)
+        all_indicators = vital_indicators + symptom_indicators
+
+        recommendation = self._generate_recommendation(pred_risk_level, all_indicators)
+
+        return {
+            "riskLevel": pred_risk_level,
+            "riskScore": risk_score,
+            "indicators": all_indicators,
+            "possibleConditions": possible_conditions,
+            "probabilities": {k: round(float(v), 3) for k, v in prob_dict.items()},
+            "recommendation": recommendation,
+            "disclaimer": DISCLAIMER,
+            "modelVersion": self.model.get("model_version", "2.0.0-ml-ensemble")
+        }
+
     def predict(
         self,
         age: int,
@@ -336,10 +425,14 @@ class HealthRiskPredictor:
     ) -> Dict[str, Any]:
         """
         Perform health risk assessment.
-        
-        Returns a preliminary risk assessment based on symptoms, vitals, and medical history.
+        Uses trained ML ensemble model if available, otherwise rule-based fallback.
         THIS IS NOT A MEDICAL DIAGNOSIS.
         """
+        # Statistical ML inference
+        if self.model_loaded and isinstance(self.model, dict) and "risk_classifier" in self.model:
+            return self._predict_ml(age, gender, symptoms, vitals, medical_history)
+
+        # Rule-based fallback
         all_indicators = []
         total_risk = 0.0
         

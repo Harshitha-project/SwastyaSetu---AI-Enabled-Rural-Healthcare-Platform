@@ -53,7 +53,11 @@ import {
   Upload,
   FolderOpen,
   AlertCircle,
+  FileUp,
+  FileCheck,
+  Printer,
 } from 'lucide-react'
+import { downloadMedicalRecordPdf } from '../../utils/pdfGenerator'
 
 export default function MedicalRecords() {
   const { i18n } = useTranslation()
@@ -68,6 +72,20 @@ export default function MedicalRecords() {
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null)
   const [showDetailDialog, setShowDetailDialog] = useState(false)
+
+  // Upload Medical Record State
+  const [showUploadDialog, setShowUploadDialog] = useState(false)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadFormData, setUploadFormData] = useState({
+    title: '',
+    type: 'consultation' as MedicalRecord['type'],
+    doctorName: '',
+    facilityName: '',
+    date: new Date().toISOString().split('T')[0],
+    diagnosis: '',
+    description: '',
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -189,6 +207,65 @@ export default function MedicalRecords() {
     setShowDetailDialog(true)
   }
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0]
+      setUploadFile(file)
+      if (!uploadFormData.title) {
+        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ')
+        setUploadFormData(prev => ({ ...prev, title: nameWithoutExt }))
+      }
+    }
+  }
+
+  const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!uploadFormData.title.trim()) return
+
+    setIsSubmitting(true)
+    try {
+      const attachments = uploadFile ? [
+        {
+          id: `att-${Date.now()}`,
+          name: uploadFile.name,
+          type: (uploadFile.type.includes('pdf') ? 'pdf' : (uploadFile.type.includes('image') ? 'image' : 'document')) as any,
+          url: URL.createObjectURL(uploadFile),
+          size: uploadFile.size,
+          uploadedAt: new Date().toISOString(),
+        }
+      ] : []
+
+      const newRecord = await healthRecordsService.addMedicalRecord({
+        patientId: 'pat-001',
+        title: uploadFormData.title,
+        type: uploadFormData.type,
+        doctorName: uploadFormData.doctorName || 'Attending Medical Officer',
+        facilityName: uploadFormData.facilityName || 'Primary Health Center',
+        date: uploadFormData.date,
+        diagnosis: uploadFormData.diagnosis,
+        description: uploadFormData.description || (uploadFile ? `Attached document: ${uploadFile.name}` : 'Document uploaded manually from local device'),
+        attachments,
+      })
+
+      setRecords(prev => [newRecord, ...prev])
+      setShowUploadDialog(false)
+      setUploadFile(null)
+      setUploadFormData({
+        title: '',
+        type: 'consultation',
+        doctorName: '',
+        facilityName: '',
+        date: new Date().toISOString().split('T')[0],
+        diagnosis: '',
+        description: '',
+      })
+    } catch (err) {
+      console.error('Failed to add medical record:', err)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -217,22 +294,31 @@ export default function MedicalRecords() {
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
             {isMarathi
-              ? 'संपूर्ण वैद्यकीय इतिहास आणि आरोग्य माहिती'
-              : 'Complete medical history and health information'}
+              ? 'संपूर्ण वैद्यकीय इतिहास, अहवाल डाउनलोड आणि संगणकावरून दस्तऐवज जोडा'
+              : 'Complete medical history, export PDF reports, and upload records from PC'}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5">
+          <Button
+            onClick={() => setShowUploadDialog(true)}
+            size="sm"
+            className="gap-1.5 bg-primary text-white shadow-sm hover:bg-primary/90"
+          >
             <Upload className="w-4 h-4" />
-            {isMarathi ? 'अपलोड' : 'Upload'}
+            {isMarathi ? 'नोंद अपलोड करा' : 'Upload Record from PC'}
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <Share2 className="w-4 h-4" />
-            {isMarathi ? 'शेअर' : 'Share'}
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <Download className="w-4 h-4" />
-            {isMarathi ? 'एक्सपोर्ट' : 'Export'}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => {
+              if (records.length > 0) {
+                downloadMedicalRecordPdf(records[0])
+              }
+            }}
+          >
+            <Download className="w-4 h-4 text-primary" />
+            {isMarathi ? 'नवीनतम PDF' : 'Download Latest PDF'}
           </Button>
         </div>
       </div>
@@ -734,17 +820,178 @@ export default function MedicalRecords() {
               </div>
 
               <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  <Download className="w-4 h-4" />
-                  {isMarathi ? 'डाउनलोड' : 'Download'}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors font-medium"
+                  onClick={() => downloadMedicalRecordPdf(selectedRecord)}
+                >
+                  <Download className="w-4 h-4 text-primary" />
+                  {isMarathi ? 'PDF डाउनलोड' : 'Download PDF'}
                 </Button>
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  <Share2 className="w-4 h-4" />
-                  {isMarathi ? 'शेअर' : 'Share'}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => window.print()}
+                >
+                  <Printer className="w-4 h-4" />
+                  {isMarathi ? 'प्रिंट' : 'Print'}
                 </Button>
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Upload Medical Record Dialog */}
+      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <Upload className="w-5 h-5 text-primary" />
+              {isMarathi ? 'संगणकावरून वैद्यकीय नोंद जोडा' : 'Upload Medical Record from PC'}
+            </DialogTitle>
+            <DialogDescription>
+              {isMarathi
+                ? 'आपल्या संगणकावरून अहवाल, डिस्चार्ज सारांश किंवा स्कॅन निवडून जतन करा.'
+                : 'Upload prescriptions, discharge summaries, hospital records, or scans from your PC.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleUploadSubmit} className="space-y-4 pt-2">
+            {/* File Dropzone */}
+            <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-primary/50 transition-colors bg-gray-50/50">
+              <input
+                type="file"
+                id="medical-file-upload"
+                className="hidden"
+                accept=".pdf,.png,.jpg,.jpeg"
+                onChange={handleFileSelect}
+              />
+              <label htmlFor="medical-file-upload" className="cursor-pointer block">
+                {uploadFile ? (
+                  <div className="flex items-center justify-center gap-2 text-primary font-medium text-sm">
+                    <FileCheck className="w-6 h-6 text-emerald-600" />
+                    <span>{uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)</span>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <FileUp className="w-8 h-8 text-gray-400 mx-auto mb-1" />
+                    <p className="text-sm font-semibold text-gray-700">
+                      {isMarathi ? 'येथे क्लिक करून फाइल निवडा' : 'Click to choose document from PC'}
+                    </p>
+                    <p className="text-xs text-gray-400">PDF, PNG, JPG (up to 10MB)</p>
+                  </div>
+                )}
+              </label>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-700">
+                  {isMarathi ? 'दस्तऐवजाचे नाव / शीर्षक *' : 'Document Title *'}
+                </label>
+                <Input
+                  required
+                  placeholder={isMarathi ? 'उदा. डिस्चार्ज सारांश' : 'e.g. Discharge Summary 2026'}
+                  value={uploadFormData.title}
+                  onChange={(e) => setUploadFormData(prev => ({ ...prev, title: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-700">
+                  {isMarathi ? 'प्रकार' : 'Record Type'}
+                </label>
+                <Select
+                  value={uploadFormData.type}
+                  onValueChange={(val: any) => setUploadFormData(prev => ({ ...prev, type: val }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="consultation">{isMarathi ? 'सल्लामसलत' : 'Consultation'}</SelectItem>
+                    <SelectItem value="hospitalization">{isMarathi ? 'रुग्णालय दाखल' : 'Hospitalization'}</SelectItem>
+                    <SelectItem value="surgery">{isMarathi ? 'शस्त्रक्रिया' : 'Surgery'}</SelectItem>
+                    <SelectItem value="prescription">{isMarathi ? 'प्रिस्क्रिप्शन' : 'Prescription'}</SelectItem>
+                    <SelectItem value="imaging">{isMarathi ? 'इमेजिंग / स्कॅन' : 'Imaging / Scan'}</SelectItem>
+                    <SelectItem value="lab_report">{isMarathi ? 'लॅब अहवाल' : 'Lab Report'}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-700">
+                  {isMarathi ? 'डॉक्टरचे नाव' : 'Doctor Name'}
+                </label>
+                <Input
+                  placeholder={isMarathi ? 'उदा. डॉ. शर्मा' : 'e.g. Dr. Priya Sharma'}
+                  value={uploadFormData.doctorName}
+                  onChange={(e) => setUploadFormData(prev => ({ ...prev, doctorName: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-700">
+                  {isMarathi ? 'रुग्णालय / केंद्र' : 'Hospital / Facility'}
+                </label>
+                <Input
+                  placeholder={isMarathi ? 'उदा. जिल्हा रुग्णालय' : 'e.g. District Hospital'}
+                  value={uploadFormData.facilityName}
+                  onChange={(e) => setUploadFormData(prev => ({ ...prev, facilityName: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-700">
+                  {isMarathi ? 'तारीख' : 'Date'}
+                </label>
+                <Input
+                  type="date"
+                  value={uploadFormData.date}
+                  onChange={(e) => setUploadFormData(prev => ({ ...prev, date: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-gray-700">
+                  {isMarathi ? 'निदान (Diagnosis)' : 'Diagnosis (optional)'}
+                </label>
+                <Input
+                  placeholder={isMarathi ? 'उदा. व्हायरल फिव्हर' : 'e.g. Acute Bronchitis'}
+                  value={uploadFormData.diagnosis}
+                  onChange={(e) => setUploadFormData(prev => ({ ...prev, diagnosis: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-700">
+                {isMarathi ? 'तपशील / शेरा' : 'Clinical Summary / Notes'}
+              </label>
+              <Input
+                placeholder={isMarathi ? 'महत्त्वाच्या सूचना किंवा संदर्भ' : 'Clinical findings, instructions, or notes'}
+                value={uploadFormData.description}
+                onChange={(e) => setUploadFormData(prev => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setShowUploadDialog(false)}>
+                {isMarathi ? 'रद्द करा' : 'Cancel'}
+              </Button>
+              <Button type="submit" disabled={isSubmitting || !uploadFormData.title.trim()}>
+                {isSubmitting
+                  ? (isMarathi ? 'जतन करत आहे...' : 'Saving...')
+                  : (isMarathi ? 'दस्तऐवज जतन करा' : 'Save Document')}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </motion.div>

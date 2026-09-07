@@ -95,10 +95,13 @@ const FindDoctor: React.FC = () => {
             className="h-10 text-xs px-3 rounded-md border border-input bg-background"
           >
             <option value="all">{isMarathi ? 'सर्व विशेषज्ञता' : 'All Specialties'}</option>
-            <option value="Cardiology">Cardiology / हृदय</option>
-            <option value="Pediatrics">Pediatrics / बालरोग</option>
-            <option value="Gynecology">Gynecology / स्त्रीरोग</option>
-            <option value="Pulmonology">Pulmonology / श्वसन</option>
+            <option value="Dentistry">Dentistry / दंतचिकित्सा 🦷</option>
+            <option value="Cardiology">Cardiology / हृदय ❤️</option>
+            <option value="Pediatrics">Pediatrics / बालरोग 👶</option>
+            <option value="Gynecology">Gynecology / स्त्रीरोग 🌸</option>
+            <option value="Pulmonology">Pulmonology / श्वसन 🫁</option>
+            <option value="Dermatology">Dermatology / त्वचा 🧴</option>
+            <option value="Orthopedics">Orthopedics / सांधे व हाडे 🦴</option>
           </select>
         </div>
       </Card>
@@ -165,7 +168,10 @@ const FindDoctor: React.FC = () => {
                   asChild
                   className="gap-1.5 text-xs bg-gradient-to-r from-primary-600 to-indigo-600 text-white font-medium"
                 >
-                  <Link to="/patient/book-appointment">
+                  <Link 
+                    to={`/patient/book-appointment?doctorId=${doc.id || doc._id}`}
+                    state={{ doctorId: doc.id || doc._id }}
+                  >
                     <Calendar className="w-3.5 h-3.5" />
                     {isMarathi ? 'भेट बुक करा (Book Appointment)' : 'Book Consultation'}
                   </Link>

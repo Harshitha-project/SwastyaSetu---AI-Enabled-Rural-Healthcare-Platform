@@ -127,6 +127,8 @@ export default function AppRouter() {
         <Route path="doctors" element={<FindDoctor />} />
         <Route path="consultation" element={<PatientTeleconsultation />} />
         <Route path="consultation/:id" element={<PatientTeleconsultation />} />
+        <Route path="teleconsultation" element={<PatientTeleconsultation />} />
+        <Route path="teleconsultation/:id" element={<PatientTeleconsultation />} />
         <Route path="monitoring" element={<HealthMonitoring />} />
         <Route path="education" element={<HealthEducation />} />
         <Route path="settings" element={<PatientSettings />} />

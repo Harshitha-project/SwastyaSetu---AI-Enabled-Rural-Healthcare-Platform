@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { appointmentService } from '../../services/appointmentService'
 import { recordsService } from '../../services/recordsService'
+import { callNotificationService } from '../../services/callNotificationService'
+import { tokenService } from '../../services/tokenService'
 import { useAuth } from '../../hooks/useAuth'
 import { useWebRTC } from '../../hooks/useWebRTC'
 import { useAIAnalysis } from '../../hooks/useAIAnalysis'
@@ -56,12 +58,12 @@ const DoctorConsultation: React.FC = () => {
   const { user } = useAuth()
   const { i18n } = useTranslation()
 
-  // For testing without login - use a default user if not authenticated
-  const effectiveUser = user || {
+  // For testing or tab isolation - ensure role is DOCTOR
+  const effectiveUser = (user && user.role === 'DOCTOR') ? user : {
     id: 'demo-doctor-1',
-    firstName: 'Test',
-    lastName: 'Doctor',
-    name: 'Dr. Test Doctor',
+    firstName: 'Priya',
+    lastName: 'Sharma',
+    name: 'Dr. Priya Sharma',
     role: 'DOCTOR' as const,
   }
 
@@ -180,11 +182,28 @@ const DoctorConsultation: React.FC = () => {
     try {
       await joinRoom()
       setHasJoined(true)
+      // Broadcast ringing call to patient portal
+      const docFullName = effectiveUser ? `Dr. ${effectiveUser.firstName || ''} ${effectiveUser.lastName || ''}`.trim() : 'Dr. Priya Sharma'
+      const effectiveRoomId = id || 'default-room'
+      callNotificationService.initiateCall({
+        doctorName: docFullName,
+        appointmentId: effectiveRoomId,
+        roomId: effectiveRoomId,
+        tokenNumber: '#A-14',
+      })
+      tokenService.setDoctorStatus('IN_CONSULTATION')
     } catch (err) {
       console.error('Failed to join call:', err)
     } finally {
       setIsJoining(false)
     }
+  }
+
+  const handleEndCall = () => {
+    endCall()
+    callNotificationService.dismissCall()
+    tokenService.finishConsultation()
+    setIsCompleted(true)
   }
 
   const handleSendMessage = (e: React.FormEvent) => {
@@ -214,7 +233,7 @@ const DoctorConsultation: React.FC = () => {
   const handleCompleteConsultation = async () => {
     if (!id) return
     try {
-      // 1. Create prescription
+      // 1. Create prescription (also auto-syncs reminders and dispatches events)
       await recordsService.createPrescription({
         patientId: (appointment?.patientId as string) || 'pat-001',
         doctorId: effectiveUser?.id || 'doc-001',
@@ -233,6 +252,10 @@ const DoctorConsultation: React.FC = () => {
       
       // 4. End the WebRTC call
       endCall()
+
+      // 5. Dismiss incoming call modal and advance token queue
+      callNotificationService.dismissCall()
+      tokenService.finishConsultation()
       
       setIsCompleted(true)
     } catch (err) {
@@ -634,7 +657,7 @@ const DoctorConsultation: React.FC = () => {
               variant="destructive"
               size="sm"
               className="rounded-full px-4 gap-1.5"
-              onClick={() => { endCall(); setIsCompleted(true); }}
+              onClick={handleEndCall}
             >
               <PhoneOff className="w-3.5 h-3.5" />
               End

@@ -121,6 +121,45 @@
 
 ---
 
+### 🌟 Latest Platform Enhancements (v2.1)
+
+#### 1. 🌐 Full Multilingual Persistence (मराठी | हिंदी | English)
+- **Comprehensive Dictionaries**: Deep Marathi (`mr`), Hindi (`hi`), and English (`en`) coverage for all navigation sidebars, OPD token statuses, teleconsultation controls, upload dialogs, and clinical cards.
+- **Dual-Storage Persistence**: Synced across `localStorage.getItem('language')` and `i18nextLng` to ensure consistent language rendering across page reloads and tab navigations.
+- **Dynamic Helper**: `useLocalizedText` hook providing clean localized fallbacks throughout the application.
+
+#### 2. 📄 Lab Reports & Records PDF Download + Manual PC Upload
+- **Instant Clinical PDF Downloads**: Patients and doctors can download professional, clinical-grade PDF reports for lab investigations and health records with one click, generated using `jspdf`.
+- **Manual Upload from PC (Lab Reports)**: Upload lab tests directly from local storage with diagnostic values, reference ranges, abnormal indicators, and file attachments (PDF/images).
+- **Manual Upload from PC (Medical Records)**: Upload clinical consultation notes, imaging summaries, hospital discharge records, and vaccination certificates from local device with custom provider and facility metadata.
+
+#### 3. 🎫 OPD Token Queue & Live Doctor Availability
+- **Real-Time Doctor Status**: Live visual status badges:
+  - 🟢 **Available / Free (उपलब्ध)**: Ready for immediate patient consultations.
+  - 🟡 **In Consultation (सल्लामसलत सुरू)**: Currently in an active video session with a patient.
+  - ☕ **On Break (विश्रांती)**: Temporarily paused.
+  - ⚪ **Offline (ऑफलाइन)**: Doctor currently unavailable.
+- **Live Token Queue Tracker**: Displays current token being served (e.g., `#A-12`), patient's active token (e.g., `#A-14`), remaining queue wait time, and queue position.
+- **Doctor Queue Controller**: Doctors can advance tokens, call the next patient, and update consultation availability directly from their dashboard.
+
+#### 4. 📞 Real-Time Doctor Call Initiation & Incoming Ringtone Modal
+- **Doctor Initiates Call**: When a doctor joins a teleconsultation room, the system broadcasts a live signaling event across browser tabs and devices via `BroadcastChannel` and storage events.
+- **Patient Ringing Alert**: Patients on any page of the portal receive an instant, high-priority ringing alert modal featuring a synthesized hospital chime (Web Audio API) and the doctor's name.
+- **1-Click Direct Join**: Clicking **"Join Consultation Now"** directs the patient straight into the active consultation room.
+
+#### 5. 💊 Immediate Prescription & Medicine Schedule Synchronization
+- **Zero-Lag Reflection**: When a doctor completes a consultation and prescribes medications, the system automatically creates corresponding `MedicineReminder` items in the database/storage.
+- **Real-Time Dashboard Sync**: Dispatches `swasthyasetu:records_sync` and `BroadcastChannel('swasthyasetu_records_bus')`, instantly refreshing the patient's dashboard medicine schedule without requiring manual page reload.
+
+#### 6. 📱 Native Mobile App Experience (PWA & Bottom Navigation)
+- **Tactile Mobile Bottom Nav**: Fixed bottom navigation bar with safe-area insets (`lg:hidden`) offering thumb-friendly access to Home, Appointments/Token Queue, Doctor Video Call, Records, and Lab Reports.
+- **Standalone PWA Web App**: Progressive Web App manifest (`manifest.json`) and crisp vector icons (192x192 & 512x512) allowing users to "Add to Home Screen" for a full-screen, native smartphone experience.
+- **Touch & Responsive Polish**: Smooth mobile tap highlights, responsive card grids, and viewport cover configuration.
+
+#### 7. 🔒 Multi-Tab Auth Session Isolation
+- **Tab-Isolated Authentication**: Prioritizes `sessionStorage` with cross-tab fallback, preventing role collision when testing a patient dashboard in Tab 1 and a doctor dashboard in Tab 2 simultaneously.
+- **Quick Role Switcher**: Interactive role switch menu in the profile dropdown for frictionless testing across Patient, Doctor, Health Worker, and Admin roles.
+
 ## 🚀 Live Demo
 
 ### Test URLs (Development)

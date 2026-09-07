@@ -34,6 +34,10 @@ class RiskIndicator(BaseModel):
     value: Optional[str] = None
     message: Optional[str] = None
 
+class ConditionPrediction(BaseModel):
+    condition: str
+    confidence: float
+
 class AssessmentResponse(BaseModel):
     riskLevel: str  # 'LOW', 'MODERATE', 'HIGH'
     riskScore: float
@@ -41,6 +45,8 @@ class AssessmentResponse(BaseModel):
     recommendation: str
     disclaimer: str
     modelVersion: str
+    possibleConditions: Optional[List[ConditionPrediction]] = []
+    probabilities: Optional[dict] = None
 
 class StressRequest(BaseModel):
     responses: List[int] = Field(..., min_length=2, max_length=10, description="Survey scale responses (0-3)")

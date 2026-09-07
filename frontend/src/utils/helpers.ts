@@ -250,28 +250,39 @@ export function parseVitals(vitals: Partial<Vitals>): Vitals {
   }
 }
 
-// Storage helpers
+// Storage helpers (tab-isolated session priority with local fallback)
 export const storage = {
   get: <T>(key: string): T | null => {
     try {
-      const item = localStorage.getItem(key)
-      return item ? JSON.parse(item) : null
+      const sessionItem = sessionStorage.getItem(key)
+      if (sessionItem) return JSON.parse(sessionItem)
+      const localItem = localStorage.getItem(key)
+      if (localItem) {
+        try {
+          sessionStorage.setItem(key, localItem)
+        } catch {}
+        return JSON.parse(localItem)
+      }
+      return null
     } catch {
       return null
     }
   },
   set: <T>(key: string, value: T): void => {
     try {
-      localStorage.setItem(key, JSON.stringify(value))
+      const serialized = JSON.stringify(value)
+      sessionStorage.setItem(key, serialized)
+      localStorage.setItem(key, serialized)
     } catch {
-      console.error('Error saving to localStorage')
+      console.error('Error saving to storage')
     }
   },
   remove: (key: string): void => {
     try {
+      sessionStorage.removeItem(key)
       localStorage.removeItem(key)
     } catch {
-      console.error('Error removing from localStorage')
+      console.error('Error removing from storage')
     }
   },
 }

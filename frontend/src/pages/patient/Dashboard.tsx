@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../hooks/useAuth';
+import { useLocalizedText } from '../../utils/langHelper';
+import { TokenQueueCard } from '../../components/teleconsultation/TokenQueueCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,11 +33,12 @@ import type { Appointment, MedicineReminder } from '../../types';
 
 const PatientDashboard: React.FC = () => {
   const { user } = useAuth();
+  const { localized } = useLocalizedText();
   const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
   const [medicineReminders, setMedicineReminders] = useState<MedicineReminder[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
 
-  useEffect(() => {
+  const loadDashboardData = useCallback(() => {
     Promise.all([
       appointmentService.getUpcomingAppointments(),
       recordsService.getReminders(),
@@ -45,6 +48,37 @@ const PatientDashboard: React.FC = () => {
       setIsLoadingData(false);
     });
   }, []);
+
+  useEffect(() => {
+    loadDashboardData();
+
+    // Listen for live prescription & medication updates from doctor consultations
+    const handleSync = () => {
+      loadDashboardData();
+    };
+
+    window.addEventListener('swasthyasetu:records_sync', handleSync);
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'swasthyasetu_prescriptions' || e.key === 'swasthyasetu_reminders') {
+        loadDashboardData();
+      }
+    });
+
+    try {
+      const channel = new BroadcastChannel('swasthyasetu_records_bus');
+      channel.onmessage = () => {
+        loadDashboardData();
+      };
+      return () => {
+        window.removeEventListener('swasthyasetu:records_sync', handleSync);
+        channel.close();
+      };
+    } catch {
+      return () => {
+        window.removeEventListener('swasthyasetu:records_sync', handleSync);
+      };
+    }
+  }, [loadDashboardData]);
 
   const handleToggleMed = async (id: string) => {
     const updated = await recordsService.toggleReminderStatus(id);
@@ -149,6 +183,11 @@ const PatientDashboard: React.FC = () => {
             </Link>
           </div>
         </div>
+      </motion.div>
+
+      {/* Live OPD Queue & Doctor Availability Card */}
+      <motion.div variants={itemVariants}>
+        <TokenQueueCard />
       </motion.div>
 
       {/* Quick Actions */}

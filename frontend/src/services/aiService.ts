@@ -21,6 +21,11 @@ export interface AssessmentRequest {
   }
 }
 
+export interface ConditionMatch {
+  condition: string
+  confidence?: number
+}
+
 export interface AIAnalysisResult {
   riskLevel: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL'
   riskScore: number // 0 - 100
@@ -36,7 +41,9 @@ export interface AIAnalysisResult {
     mr: string
     hi: string
   }
-  possibleConditions?: string[]
+  possibleConditions?: Array<string | ConditionMatch>
+  probabilities?: Record<string, number>
+  modelVersion?: string
   createdAt?: string
 }
 
@@ -49,22 +56,70 @@ const MEDICAL_DISCLAIMER = {
 export const aiService = {
   // Submit complete AI assessment with symptoms and vitals
   async assessHealthRisk(data: AssessmentRequest): Promise<AIAnalysisResult> {
+    // 1. Try Node backend API (/api/ai/assessment)
     try {
       const res = await api.post<ApiResponse<any>>('/ai/assessment', data)
       if (res.data?.data) {
         const item = res.data.data
+        const assessment = item.assessment || item
         return {
-          riskLevel: item.riskLevel || item.assessment?.riskLevel || 'MODERATE',
-          riskScore: item.riskScore || item.assessment?.riskScore || 50,
-          indicators: item.indicators || item.assessment?.indicators || [],
-          recommendation: item.recommendations || item.assessment?.recommendation || 'Consult a healthcare professional for clinical examination.',
+          riskLevel: assessment.riskLevel || item.riskLevel || 'MODERATE',
+          riskScore: assessment.riskScore !== undefined ? assessment.riskScore : (item.riskScore || 50),
+          indicators: assessment.indicators || item.indicators || [],
+          recommendation: assessment.recommendation || assessment.recommendations?.[0] || item.recommendations || 'Consult a healthcare professional for clinical examination.',
           disclaimer: item.disclaimer || MEDICAL_DISCLAIMER,
-          possibleConditions: item.possibleConditions || [],
+          possibleConditions: assessment.possibleConditions || item.possibleConditions || [],
+          probabilities: assessment.probabilities || item.probabilities,
+          modelVersion: assessment.modelVersion || item.modelVersion || '2.0.0-ml-ensemble',
           createdAt: new Date().toISOString(),
         }
       }
     } catch (err) {
-      console.warn('API assessHealthRisk fallback to local rules', err)
+      console.warn('Backend API unavailable, attempting direct FastAPI connection:', err)
+    }
+
+    // 2. Direct FastAPI ML service connection (http://localhost:8000/api/predict)
+    try {
+      const fastApiUrl = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8000'
+      const directRes = await fetch(`${fastApiUrl}/api/predict`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          age: Number(data.additionalInfo?.age) || 35,
+          gender: data.additionalInfo?.gender || 'OTHER',
+          symptoms: data.symptoms,
+          vitals: {
+            heartRate: Number(data.vitals.heartRate) || 75,
+            bloodPressure: {
+              systolic: Number(data.vitals.systolic) || 120,
+              diastolic: Number(data.vitals.diastolic) || 80,
+            },
+            temperature: Number(data.vitals.temperature) || 98.6,
+            spo2: Number(data.vitals.spo2) || 98,
+            glucose: Number(data.vitals.glucose) || 105,
+          },
+          medicalHistory: data.additionalInfo?.chronicConditions || [],
+        }),
+      })
+
+      if (directRes.ok) {
+        const mlData = await directRes.json()
+        const rawScore = mlData.riskScore !== undefined ? mlData.riskScore : 0.5
+        const riskScore = rawScore <= 1.0 ? Math.round(rawScore * 100) : Math.round(rawScore)
+        return {
+          riskLevel: mlData.riskLevel || 'MODERATE',
+          riskScore,
+          indicators: mlData.indicators || [],
+          recommendation: mlData.recommendation || 'Consult a healthcare professional for clinical examination.',
+          disclaimer: MEDICAL_DISCLAIMER,
+          possibleConditions: mlData.possibleConditions || [],
+          probabilities: mlData.probabilities,
+          modelVersion: mlData.modelVersion || '2.0.0-ml-ensemble',
+          createdAt: new Date().toISOString(),
+        }
+      }
+    } catch (fastApiErr) {
+      console.warn('FastAPI direct call unavailable, using local clinical predictor:', fastApiErr)
     }
 
     // Intelligent local clinical assessment fallback

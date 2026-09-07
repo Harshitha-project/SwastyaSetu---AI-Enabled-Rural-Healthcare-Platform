@@ -32,6 +32,8 @@ import {
   Sparkles,
   ShieldAlert,
 } from 'lucide-react'
+import { TokenQueueCard } from '../../components/teleconsultation/TokenQueueCard'
+import { callNotificationService } from '../../services/callNotificationService'
 
 const DoctorDashboard: React.FC = () => {
   const { t, i18n } = useTranslation()
@@ -41,6 +43,17 @@ const DoctorDashboard: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [patients, setPatients] = useState<Patient[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+  const handleStartCall = () => {
+    callNotificationService.initiateCall({
+      doctorName: user?.name || (user?.firstName ? `Dr. ${user.firstName} ${user.lastName || ''}` : 'Dr. Priya Sharma'),
+      doctorSpecialty: 'Senior Telemedicine Consultant',
+      appointmentId: 'apt-101',
+      roomId: 'room-apt-101',
+      tokenNumber: '#A-14',
+    })
+    navigate('/doctor/consultation/apt-101')
+  }
 
   useEffect(() => {
     Promise.all([
@@ -113,6 +126,9 @@ const DoctorDashboard: React.FC = () => {
           </div>
         </div>
       </motion.div>
+
+      {/* OPD Token Queue & Doctor Availability Manager */}
+      <TokenQueueCard isDoctorView={true} onCallPatient={handleStartCall} />
 
       {/* High-Risk Patient Alert Banner */}
       {highRiskPatients.length > 0 && (

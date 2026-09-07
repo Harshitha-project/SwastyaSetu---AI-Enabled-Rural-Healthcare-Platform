@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../hooks/useAuth';
 import { cn } from '@/lib/utils';
 import {
@@ -50,6 +51,7 @@ interface NavGroup {
 export const Sidebar: React.FC = () => {
   const { user } = useAuth();
   const location = useLocation();
+  const { t } = useTranslation();
 
   const getNavGroups = (): NavGroup[] => {
     const role = user?.role;
@@ -59,41 +61,41 @@ export const Sidebar: React.FC = () => {
         return [
           {
             items: [
-              { path: '/patient', label: 'Dashboard', icon: LayoutDashboard },
-              { path: '/patient/profile', label: 'My Profile', icon: User },
+              { path: '/patient', label: t('sidebar.dashboard', 'Dashboard'), icon: LayoutDashboard },
+              { path: '/patient/profile', label: t('sidebar.profile', 'My Profile'), icon: User },
             ],
           },
           {
-            title: 'Health Services',
+            title: t('sidebar.healthServices', 'Health Services'),
             items: [
-              { path: '/patient/assessment', label: 'AI Health Check', icon: Activity },
-              { path: '/patient/appointments', label: 'Appointments', icon: Calendar },
-              { path: '/patient/book-appointment', label: 'Book Appointment', icon: PlusCircle },
-              { path: '/patient/consultation', label: 'Teleconsultation', icon: Video },
+              { path: '/patient/assessment', label: t('sidebar.healthAssessment', 'AI Health Check'), icon: Activity },
+              { path: '/patient/appointments', label: t('sidebar.appointments', 'Appointments'), icon: Calendar },
+              { path: '/patient/book-appointment', label: t('sidebar.bookAppointment', 'Book Appointment'), icon: PlusCircle },
+              { path: '/patient/consultation', label: t('sidebar.consultations', 'Teleconsultation'), icon: Video },
             ],
           },
           {
-            title: 'Health Records',
+            title: t('sidebar.healthRecords', 'Health Records'),
             items: [
-              { path: '/patient/records', label: 'Medical Records', icon: FolderOpen },
-              { path: '/patient/lab-reports', label: 'Lab Reports', icon: Beaker },
-              { path: '/patient/vaccinations', label: 'Vaccinations', icon: Syringe },
-              { path: '/patient/prescriptions', label: 'Prescriptions', icon: ClipboardList },
-              { path: '/patient/monitoring', label: 'Health Metrics', icon: Heart },
-              { path: '/patient/reminders', label: 'Medicine Reminders', icon: Bell },
+              { path: '/patient/records', label: t('sidebar.medicalRecords', 'Medical Records'), icon: FolderOpen },
+              { path: '/patient/lab-reports', label: t('sidebar.labReports', 'Lab Reports'), icon: Beaker },
+              { path: '/patient/vaccinations', label: t('sidebar.vaccinations', 'Vaccinations'), icon: Syringe },
+              { path: '/patient/prescriptions', label: t('sidebar.prescriptions', 'Prescriptions'), icon: ClipboardList },
+              { path: '/patient/monitoring', label: t('sidebar.healthMetrics', 'Health Metrics'), icon: Heart },
+              { path: '/patient/reminders', label: t('sidebar.reminders', 'Medicine Reminders'), icon: Bell },
             ],
           },
           {
-            title: 'Resources',
+            title: t('sidebar.resources', 'Resources'),
             items: [
-              { path: '/patient/emergency', label: 'Emergency SOS', icon: AlertTriangle },
-              { path: '/patient/health-alerts', label: 'Health Alerts', icon: Radio },
-              { path: '/patient/schemes', label: 'Govt Schemes', icon: Shield },
-              { path: '/patient/insurance', label: 'Insurance & Claims', icon: CreditCard },
-              { path: '/patient/facilities', label: 'Find Facility', icon: MapPin },
-              { path: '/patient/doctors', label: 'Find Doctor', icon: Stethoscope },
-              { path: '/patient/education', label: 'Health Education', icon: BookOpen },
-              { path: '/patient/settings', label: 'Settings', icon: Settings },
+              { path: '/patient/emergency', label: t('sidebar.emergencySos', 'Emergency SOS'), icon: AlertTriangle },
+              { path: '/patient/health-alerts', label: t('sidebar.healthAlerts', 'Health Alerts'), icon: Radio },
+              { path: '/patient/schemes', label: t('sidebar.govtSchemes', 'Govt Schemes'), icon: Shield },
+              { path: '/patient/insurance', label: t('sidebar.insurance', 'Insurance & Claims'), icon: CreditCard },
+              { path: '/patient/facilities', label: t('sidebar.facilities', 'Find Facility'), icon: MapPin },
+              { path: '/patient/doctors', label: t('sidebar.findDoctor', 'Find Doctor'), icon: Stethoscope },
+              { path: '/patient/education', label: t('sidebar.healthEducation', 'Health Education'), icon: BookOpen },
+              { path: '/patient/settings', label: t('sidebar.settings', 'Settings'), icon: Settings },
             ],
           },
         ];
@@ -102,22 +104,22 @@ export const Sidebar: React.FC = () => {
         return [
           {
             items: [
-              { path: '/doctor', label: 'Dashboard', icon: LayoutDashboard },
+              { path: '/doctor', label: t('sidebar.dashboard', 'Dashboard'), icon: LayoutDashboard },
             ],
           },
           {
-            title: 'Patient Care',
+            title: t('sidebar.patientCare', 'Patient Care'),
             items: [
-              { path: '/doctor/patients', label: 'My Patients', icon: Users },
-              { path: '/doctor/appointments', label: 'Appointments', icon: Calendar },
-              { path: '/doctor/consultation', label: 'Consultations', icon: MessageSquare },
+              { path: '/doctor/patients', label: t('sidebar.patients', 'My Patients'), icon: Users },
+              { path: '/doctor/appointments', label: t('sidebar.appointments', 'Appointments'), icon: Calendar },
+              { path: '/doctor/consultation', label: t('sidebar.consultations', 'Consultations'), icon: MessageSquare },
             ],
           },
           {
-            title: 'Management',
+            title: t('sidebar.management', 'Management'),
             items: [
-              { path: '/doctor/prescriptions', label: 'Prescriptions', icon: Pill },
-              { path: '/doctor/schedule', label: 'My Schedule', icon: Clock },
+              { path: '/doctor/prescriptions', label: t('sidebar.prescriptions', 'Prescriptions'), icon: Pill },
+              { path: '/doctor/schedule', label: t('sidebar.schedule', 'My Schedule'), icon: Clock },
             ],
           },
         ];
@@ -126,23 +128,23 @@ export const Sidebar: React.FC = () => {
         return [
           {
             items: [
-              { path: '/worker', label: 'Dashboard', icon: LayoutDashboard },
+              { path: '/worker', label: t('sidebar.dashboard', 'Dashboard'), icon: LayoutDashboard },
             ],
           },
           {
-            title: 'Patient Services',
+            title: t('sidebar.patientServices', 'Patient Services'),
             items: [
-              { path: '/worker/register', label: 'Register Patient', icon: UserPlus },
-              { path: '/worker/search', label: 'Find Patient', icon: Search },
-              { path: '/worker/screenings', label: 'Screenings', icon: ClipboardList },
+              { path: '/worker/register', label: t('sidebar.registerPatient', 'Register Patient'), icon: UserPlus },
+              { path: '/worker/search', label: t('sidebar.searchPatient', 'Find Patient'), icon: Search },
+              { path: '/worker/screenings', label: t('sidebar.screenings', 'Screenings'), icon: ClipboardList },
             ],
           },
           {
-            title: 'Field Work',
+            title: t('sidebar.fieldWork', 'Field Work'),
             items: [
-              { path: '/worker/vitals', label: 'Record Vitals', icon: Activity },
-              { path: '/worker/referrals', label: 'Referrals', icon: FileText },
-              { path: '/worker/sync', label: 'Pending Sync', icon: Clock },
+              { path: '/worker/vitals', label: t('sidebar.vitals', 'Record Vitals'), icon: Activity },
+              { path: '/worker/referrals', label: t('sidebar.referrals', 'Referrals'), icon: FileText },
+              { path: '/worker/sync', label: t('sidebar.sync', 'Pending Sync'), icon: Clock },
             ],
           },
         ];
@@ -151,29 +153,29 @@ export const Sidebar: React.FC = () => {
         return [
           {
             items: [
-              { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+              { path: '/admin', label: t('sidebar.dashboard', 'Dashboard'), icon: LayoutDashboard },
             ],
           },
           {
-            title: 'User Management',
+            title: t('sidebar.userManagement', 'User Management'),
             items: [
-              { path: '/admin/patients', label: 'Patients', icon: Users },
-              { path: '/admin/doctors', label: 'Doctors', icon: Stethoscope },
-              { path: '/admin/workers', label: 'Health Workers', icon: UserPlus },
+              { path: '/admin/patients', label: t('sidebar.patients', 'Patients'), icon: Users },
+              { path: '/admin/doctors', label: t('sidebar.doctors', 'Doctors'), icon: Stethoscope },
+              { path: '/admin/workers', label: t('sidebar.healthWorkers', 'Health Workers'), icon: UserPlus },
             ],
           },
           {
-            title: 'Operations',
+            title: t('sidebar.operations', 'Operations'),
             items: [
-              { path: '/admin/facilities', label: 'Facilities', icon: Building2 },
-              { path: '/admin/appointments', label: 'Appointments', icon: Calendar },
-              { path: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+              { path: '/admin/facilities', label: t('sidebar.facilities', 'Facilities'), icon: Building2 },
+              { path: '/admin/appointments', label: t('sidebar.appointments', 'Appointments'), icon: Calendar },
+              { path: '/admin/analytics', label: t('sidebar.analytics', 'Analytics'), icon: BarChart3 },
             ],
           },
           {
-            title: 'System',
+            title: t('sidebar.system', 'System'),
             items: [
-              { path: '/admin/settings', label: 'Settings', icon: Settings },
+              { path: '/admin/settings', label: t('sidebar.settings', 'Settings'), icon: Settings },
             ],
           },
         ];

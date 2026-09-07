@@ -1,6 +1,9 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
+import { doctorService } from '../../services/doctorService'
+import type { Doctor } from '../../types'
 import {
   Card,
   CardHeader,
@@ -22,6 +25,9 @@ import {
   WifiOff,
   Save,
   Shield,
+  Stethoscope,
+  Video,
+  Star,
 } from 'lucide-react'
 
 const RegisterPatient: React.FC = () => {
@@ -39,29 +45,27 @@ const RegisterPatient: React.FC = () => {
     emergencyContact: '',
     medicalNotes: '',
   })
+  const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>('')
+  const [queueImmediately, setQueueImmediately] = useState(true)
   const [isSaved, setIsSaved] = useState(false)
+  const [assignedDoc, setAssignedDoc] = useState<Doctor | null>(null)
   const isOnline = navigator.onLine
+
+  useEffect(() => {
+    doctorService.getDoctors().then(docs => {
+      setDoctors(docs)
+      if (docs.length > 0) {
+        setSelectedDoctorId(docs[0].id || docs[0]._id)
+      }
+    })
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Save to offline queue or API
+    const chosen = doctors.find(d => (d.id || d._id) === selectedDoctorId) || null
+    setAssignedDoc(chosen)
     setIsSaved(true)
-    setTimeout(() => {
-      setIsSaved(false)
-      setFormData({
-        firstName: '',
-        lastName: '',
-        phone: '',
-        dateOfBirth: '',
-        gender: 'F',
-        bloodGroup: 'B+',
-        village: '',
-        taluka: 'Shirur',
-        district: 'Pune',
-        emergencyContact: '',
-        medicalNotes: '',
-      })
-    }, 4000)
   }
 
   const isMarathi = i18n.language === 'mr'
@@ -91,12 +95,55 @@ const RegisterPatient: React.FC = () => {
       )}
 
       {isSaved && (
-        <Alert className="bg-emerald-50 border-emerald-300 text-emerald-800">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          <AlertTitle className="font-semibold text-sm">Patient Registered Successfully!</AlertTitle>
-          <AlertDescription className="text-xs">
-            ABHA Rural Health ID generated: 91-8402-9182. Patient can now be connected to doctors.
-          </AlertDescription>
+        <Alert className="bg-emerald-50 border-emerald-300 text-emerald-900 p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="space-y-1 flex-1">
+              <AlertTitle className="font-bold text-base text-emerald-950">
+                {isMarathi ? 'रुग्ण नोंदणी यशस्वी!' : 'Patient Registered Successfully!'}
+              </AlertTitle>
+              <AlertDescription className="text-xs text-emerald-800 leading-relaxed">
+                ABHA Rural Health ID generated: <strong>91-8402-9182</strong>. Assigned to{' '}
+                <strong>{(assignedDoc?.user as any)?.name || 'Dr. Rajesh Patil'}</strong> ({assignedDoc?.specialization || 'General Medicine'}).
+              </AlertDescription>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-emerald-200">
+            <Button
+              asChild
+              size="sm"
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs shadow-xs"
+            >
+              <Link to="/patient/consultation">
+                <Video className="w-4 h-4" />
+                {isMarathi ? 'थेट व्हिडिओ सल्लामसलत सुरू करा' : `Start Consultation with ${(assignedDoc?.user as any)?.name || 'Doctor'}`}
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsSaved(false)
+                setFormData({
+                  firstName: '',
+                  lastName: '',
+                  phone: '',
+                  dateOfBirth: '',
+                  gender: 'F',
+                  bloodGroup: 'B+',
+                  village: '',
+                  taluka: 'Shirur',
+                  district: 'Pune',
+                  emergencyContact: '',
+                  medicalNotes: '',
+                })
+              }}
+              className="text-xs"
+            >
+              {isMarathi ? 'दुसरा रुग्ण नोंदवा' : 'Register Next Patient'}
+            </Button>
+          </div>
         </Alert>
       )}
 
@@ -172,9 +219,52 @@ const RegisterPatient: React.FC = () => {
                 rows={3}
                 value={formData.medicalNotes}
                 onChange={e => setFormData(p => ({ ...p, medicalNotes: e.target.value }))}
-                placeholder="Fever for 3 days, joint aches, pregnancy 2nd trimester..."
+                placeholder="Fever for 3 days, dental pain, joint aches, pregnancy 2nd trimester..."
                 className="w-full p-2.5 rounded-xl border border-input text-xs bg-background"
               />
+            </div>
+
+            {/* Doctor Selection Field */}
+            <div className="p-4 rounded-xl bg-primary-50/50 dark:bg-primary-950/20 border border-primary-200/80 dark:border-primary-900 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2 font-semibold text-sm text-foreground">
+                  <Stethoscope className="w-4 h-4 text-primary-600" />
+                  {isMarathi ? 'रुग्णासाठी नोंदणीकृत डॉक्टर निवडा' : 'Choose / Assign Registered Doctor'}
+                </Label>
+                <Badge variant="outline" className="text-[11px] text-primary-700 bg-primary-100/60">
+                  {doctors.length} Verified Doctors
+                </Badge>
+              </div>
+
+              <select
+                value={selectedDoctorId}
+                onChange={e => setSelectedDoctorId(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-input text-xs bg-background font-medium"
+              >
+                {doctors.map(doc => {
+                  const name = (doc.user as any)?.name || `${(doc.user as any)?.firstName} ${(doc.user as any)?.lastName}`
+                  return (
+                    <option key={doc.id || doc._id} value={doc.id || doc._id}>
+                      {name} — {doc.specialization} (Fee: ₹{doc.consultationFee})
+                    </option>
+                  )
+                })}
+              </select>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="immediateTeleconsult"
+                  checked={queueImmediately}
+                  onChange={e => setQueueImmediately(e.target.checked)}
+                  className="rounded border-input text-primary-600 w-4 h-4 cursor-pointer"
+                />
+                <label htmlFor="immediateTeleconsult" className="text-xs text-muted-foreground cursor-pointer">
+                  {isMarathi
+                    ? 'या रुग्णाला लगेचच थेट OPD टेलिकन्सल्टेशन रांगेत (Token Queue) जोडा'
+                    : 'Enqueue patient into live OPD teleconsultation token queue immediately upon registration'}
+                </label>
+              </div>
             </div>
           </CardContent>
 

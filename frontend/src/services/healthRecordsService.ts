@@ -569,7 +569,13 @@ class HealthRecordsService {
   }): Promise<MedicalRecord[]> {
     await this.simulateDelay()
     
-    let records = mockMedicalRecords.filter(r => r.patientId === patientId || patientId === 'all')
+    let customRecords: MedicalRecord[] = []
+    try {
+      customRecords = JSON.parse(localStorage.getItem('swasthyasetu_custom_medical_records') || '[]')
+    } catch {}
+
+    const allRecords = [...customRecords, ...mockMedicalRecords]
+    let records = allRecords.filter(r => r.patientId === patientId || patientId === 'all')
     
     if (filters?.type) {
       records = records.filter(r => r.type === filters.type)
@@ -599,7 +605,43 @@ class HealthRecordsService {
 
   async getMedicalRecordById(id: string): Promise<MedicalRecord | null> {
     await this.simulateDelay()
+    try {
+      const customRecords: MedicalRecord[] = JSON.parse(localStorage.getItem('swasthyasetu_custom_medical_records') || '[]')
+      const match = customRecords.find(r => r.id === id)
+      if (match) return match
+    } catch {}
     return mockMedicalRecords.find(r => r.id === id) || null
+  }
+
+  async addMedicalRecord(record: Partial<MedicalRecord>): Promise<MedicalRecord> {
+    await this.simulateDelay()
+    const newRecord: MedicalRecord = {
+      id: `rec-${Date.now()}`,
+      patientId: record.patientId || 'pat-001',
+      type: record.type || 'consultation',
+      title: record.title || 'Medical Record',
+      titleMr: record.titleMr || record.title || 'वैद्यकीय नोंद',
+      description: record.description || '',
+      descriptionMr: record.descriptionMr || record.description || '',
+      date: record.date || new Date().toISOString().split('T')[0],
+      doctorName: record.doctorName,
+      facilityName: record.facilityName || 'Primary Health Center',
+      facilityNameMr: record.facilityNameMr || record.facilityName || 'प्राथमिक आरोग्य केंद्र',
+      diagnosis: record.diagnosis,
+      diagnosisMr: record.diagnosisMr || record.diagnosis,
+      attachments: record.attachments || [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+
+    try {
+      const custom = JSON.parse(localStorage.getItem('swasthyasetu_custom_medical_records') || '[]')
+      custom.unshift(newRecord)
+      localStorage.setItem('swasthyasetu_custom_medical_records', JSON.stringify(custom))
+    } catch {}
+
+    mockMedicalRecords.unshift(newRecord)
+    return newRecord
   }
 
   // Lab Reports
@@ -611,7 +653,13 @@ class HealthRecordsService {
   }): Promise<LabReport[]> {
     await this.simulateDelay()
     
-    let reports = mockLabReports.filter(r => r.patientId === patientId || patientId === 'all')
+    let customReports: LabReport[] = []
+    try {
+      customReports = JSON.parse(localStorage.getItem('swasthyasetu_custom_lab_reports') || '[]')
+    } catch {}
+
+    const allReports = [...customReports, ...mockLabReports]
+    let reports = allReports.filter(r => r.patientId === patientId || patientId === 'all')
     
     if (filters?.category) {
       reports = reports.filter(r => r.category === filters.category)
@@ -634,7 +682,51 @@ class HealthRecordsService {
 
   async getLabReportById(id: string): Promise<LabReport | null> {
     await this.simulateDelay()
+    try {
+      const customReports: LabReport[] = JSON.parse(localStorage.getItem('swasthyasetu_custom_lab_reports') || '[]')
+      const match = customReports.find(r => r.id === id)
+      if (match) return match
+    } catch {}
     return mockLabReports.find(r => r.id === id) || null
+  }
+
+  async addLabReport(report: Partial<LabReport>): Promise<LabReport> {
+    await this.simulateDelay()
+    const newReport: LabReport = {
+      id: `lab-${Date.now()}`,
+      patientId: report.patientId || 'pat-001',
+      testName: report.testName || 'Diagnostic Lab Report',
+      testNameMr: report.testNameMr || report.testName || 'प्रयोगशाळा अहवाल',
+      category: report.category || 'blood',
+      date: report.date || new Date().toISOString().split('T')[0],
+      labName: report.labName || 'Local Diagnostic Lab',
+      labNameMr: report.labNameMr || report.labName || 'स्थानिक पॅथॉलॉजी लॅब',
+      status: report.status || 'completed',
+      results: report.results && report.results.length > 0 ? report.results : [
+        {
+          parameter: 'Primary Diagnostic Finding',
+          parameterMr: 'प्राथमिक चाचणी निष्कर्ष',
+          value: 'Observed / Within Range',
+          unit: '-',
+          normalRange: 'Normal',
+          status: 'normal',
+        }
+      ],
+      doctorName: report.doctorName,
+      notes: report.notes || 'Uploaded manually by patient/health worker.',
+      notesMr: report.notesMr || report.notes || 'रुग्ण किंवा आरोग्य सेवकाने स्वतः अपलोड केलेला अहवाल.',
+      attachmentUrl: report.attachmentUrl,
+      createdAt: new Date().toISOString(),
+    }
+
+    try {
+      const custom = JSON.parse(localStorage.getItem('swasthyasetu_custom_lab_reports') || '[]')
+      custom.unshift(newReport)
+      localStorage.setItem('swasthyasetu_custom_lab_reports', JSON.stringify(custom))
+    } catch {}
+
+    mockLabReports.unshift(newReport)
+    return newReport
   }
 
   async getLabTrends(patientId: string, parameter: string): Promise<{ date: string; value: number }[]> {

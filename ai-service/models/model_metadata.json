@@ -1,0 +1,21 @@
+{
+  "model_version": "2.0.0-ml-ensemble",
+  "algorithm": "RandomForestClassifier (Ensemble of 150 Estimators)",
+  "features_count": 43,
+  "test_risk_accuracy": 0.9983,
+  "test_condition_accuracy": 0.9908,
+  "cv_accuracy_mean": 0.9908,
+  "supported_symptoms_count": 31,
+  "top_features": {
+    "vital_temperature": 0.1786138811223304,
+    "vital_heart_rate": 0.16109054439859538,
+    "vital_spo2": 0.10119238006220889,
+    "vital_diastolic_bp": 0.08681226804738712,
+    "vital_systolic_bp": 0.07561005321522567,
+    "symptom_headache": 0.05007719278830205,
+    "symptom_body pain": 0.047548847338882545,
+    "vital_glucose": 0.04028750925557486,
+    "symptom_palpitations": 0.02335607138331474,
+    "symptom_fatigue": 0.022776201087655237
+  }
+}

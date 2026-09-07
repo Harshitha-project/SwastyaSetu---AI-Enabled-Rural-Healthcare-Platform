@@ -53,15 +53,25 @@ const BookAppointment: React.FC = () => {
   const [isBooking, setIsBooking] = useState(false)
   const [bookedSuccess, setBookedSuccess] = useState<any>(null)
 
+  // Check location state or URL params for doctorId and reason
+  const queryParams = new URLSearchParams(location.search)
+  const initialDoctorId = queryParams.get('doctorId') || (location.state as any)?.doctorId
+  const initialReason = queryParams.get('reason') || (location.state as any)?.reason || ''
+
   // Load doctors
   useEffect(() => {
+    if (initialReason && !reason) {
+      setReason(initialReason)
+    }
     doctorService.getDoctors().then(data => {
       setDoctors(data)
-      if (data.length > 0 && !selectedDoctorId) {
+      if (initialDoctorId && data.some(d => (d.id || d._id) === initialDoctorId)) {
+        setSelectedDoctorId(initialDoctorId)
+      } else if (data.length > 0 && !selectedDoctorId) {
         setSelectedDoctorId(data[0].id || data[0]._id)
       }
     })
-  }, [])
+  }, [initialDoctorId])
 
   // Load slots when doctor or date changes
   useEffect(() => {
@@ -241,10 +251,13 @@ const BookAppointment: React.FC = () => {
                   className="h-8 text-xs px-2.5 rounded-md border border-input bg-background"
                 >
                   <option value="all">All Specialties / सर्व</option>
-                  <option value="Cardiology">Cardiology / हृदय</option>
-                  <option value="Pediatrics">Pediatrics / बालरोग</option>
-                  <option value="Gynecology">Gynecology / स्त्रीरोग</option>
-                  <option value="Pulmonology">Pulmonology / श्वसन</option>
+                  <option value="Dentistry">Dentistry / दंतचिकित्सा 🦷</option>
+                  <option value="Cardiology">Cardiology / हृदय ❤️</option>
+                  <option value="Pediatrics">Pediatrics / बालरोग 👶</option>
+                  <option value="Gynecology">Gynecology / स्त्रीरोग 🌸</option>
+                  <option value="Pulmonology">Pulmonology / श्वसन 🫁</option>
+                  <option value="Dermatology">Dermatology / त्वचा 🧴</option>
+                  <option value="Orthopedics">Orthopedics / सांधे व हाडे 🦴</option>
                 </select>
               </div>
             </div>

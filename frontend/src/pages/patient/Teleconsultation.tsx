@@ -45,8 +45,8 @@ const PatientTeleconsultation: React.FC = () => {
   const { user } = useAuth()
   const { i18n } = useTranslation()
 
-  // For testing without login - use a default user if not authenticated
-  const effectiveUser = user || {
+  // For testing or tab isolation - ensure role is PATIENT
+  const effectiveUser = (user && user.role === 'PATIENT') ? user : {
     id: 'demo-patient-1',
     firstName: 'Ramesh',
     lastName: 'Patil',
