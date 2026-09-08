@@ -4,8 +4,8 @@
   "description": "SwasthyaSetu Backend API - AI-Enabled Rural Healthcare Platform",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "nodemon",
-    "build": "npx prisma generate && tsc",
+    "dev": "set NODE_TLS_REJECT_UNAUTHORIZED=0 && nodemon",
+    "build": "set NODE_TLS_REJECT_UNAUTHORIZED=0 && npx prisma generate && tsc",
     "start": "node dist/server.js",
     "seed": "ts-node src/scripts/seed.ts",
     "test": "jest --coverage",
@@ -15,7 +15,6 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
-    "@prisma/client": "^6.0.0",
     "axios": "^1.6.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -29,13 +28,14 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@prisma/client": "^5.22.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^20.10.5",
     "nodemon": "^3.0.2",
-    "prisma": "^6.0.0",
+    "prisma": "^5.22.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
