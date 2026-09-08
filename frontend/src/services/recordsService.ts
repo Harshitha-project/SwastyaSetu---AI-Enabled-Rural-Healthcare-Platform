@@ -201,11 +201,46 @@ export const recordsService = {
     }
 
     const all = getLocalPrescriptions()
+    // Resolve logged-in doctor identity
+    let doctorName = 'Doctor'
+    let doctorId = rx.doctorId || 'doc-001'
+    try {
+      const stored = sessionStorage.getItem('swasthyasetu_auth') || localStorage.getItem('swasthyasetu_auth')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        const u = parsed.user
+        if (u?.role === 'DOCTOR') {
+          doctorName = u.name || (u.firstName ? `Dr. ${u.firstName} ${u.lastName || ''}`.trim() : doctorName)
+          doctorId = u.id || doctorId
+        }
+      }
+    } catch {}
+
+    // Use pre-resolved patientName if provided, otherwise fall back to appointment lookup
+    let patientName = rx.patientName || 'Patient'
+    if (!rx.patientName) {
+      try {
+        const apts = JSON.parse(localStorage.getItem('swasthyasetu_appointments') || '[]')
+        const apt = apts.find((a: any) =>
+          a.patientId === rx.patientId ||
+          (a.patient?.user as any)?.id === rx.patientId ||
+          (a.patient as any)?.userId === rx.patientId ||
+          a.id === rx.appointmentId
+        )
+        if (apt?.patient?.user) {
+          const pu = apt.patient.user
+          patientName = pu.name || `${pu.firstName || ''} ${pu.lastName || ''}`.trim() || patientName
+        }
+      } catch {}
+    }
+
     const newRx: Prescription = {
       id: `rx-${Date.now()}`,
       _id: `rx-${Date.now()}`,
       patientId: rx.patientId || 'pat-001',
-      doctorId: rx.doctorId || 'doc-001',
+      doctorId,
+      doctorName,
+      patientName,
       appointmentId: rx.appointmentId || 'apt-101',
       diagnosis: rx.diagnosis || 'Clinical teleconsultation prescription',
       medications: rx.medications || [],
@@ -254,7 +289,7 @@ export const recordsService = {
     return newRx
   },
 
-  // Get medicine reminders
+  // Get medicine reminders for the logged-in patient
   async getReminders(): Promise<MedicineReminder[]> {
     try {
       const res = await api.get<ApiResponse<MedicineReminder[]>>('/reminders')
@@ -262,7 +297,16 @@ export const recordsService = {
     } catch (err) {
       console.warn('API getReminders fallback to local', err)
     }
-    return getLocalReminders()
+    const all = getLocalReminders()
+    // Filter by logged-in patient ID
+    let userId = ''
+    try {
+      const stored = sessionStorage.getItem('swasthyasetu_auth') || localStorage.getItem('swasthyasetu_auth')
+      if (stored) userId = JSON.parse(stored).user?.id || ''
+    } catch {}
+    if (!userId) return all
+    const filtered = all.filter(r => r.patientId === userId || r.patientId === 'pat-001' || r.patientId === 'u-pat-1')
+    return filtered
   },
 
   // Toggle medicine taken status for today
@@ -285,10 +329,15 @@ export const recordsService = {
   // Add custom medicine reminder
   async addReminder(rem: Partial<MedicineReminder>): Promise<MedicineReminder> {
     const list = getLocalReminders()
+    let patientId = 'pat-001'
+    try {
+      const stored = sessionStorage.getItem('swasthyasetu_auth') || localStorage.getItem('swasthyasetu_auth')
+      if (stored) patientId = JSON.parse(stored).user?.id || 'pat-001'
+    } catch {}
     const newRem: MedicineReminder = {
       id: `rem-${Date.now()}`,
       _id: `rem-${Date.now()}`,
-      patientId: 'pat-001',
+      patientId,
       medicineName: rem.medicineName || 'Medicine',
       dosage: rem.dosage || '1 tablet',
       frequency: rem.frequency || 'ONCE_DAILY',

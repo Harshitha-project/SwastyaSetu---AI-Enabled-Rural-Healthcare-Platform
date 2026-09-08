@@ -201,8 +201,24 @@ function saveLocalAppointments(apts: Appointment[]) {
   }
 }
 
+function getCurrentUserId(): string {
+  try {
+    const stored = sessionStorage.getItem('swasthyasetu_auth') || localStorage.getItem('swasthyasetu_auth')
+    if (stored) return JSON.parse(stored).user?.id || ''
+  } catch {}
+  return ''
+}
+
+function getCurrentUserRole(): string {
+  try {
+    const stored = sessionStorage.getItem('swasthyasetu_auth') || localStorage.getItem('swasthyasetu_auth')
+    if (stored) return JSON.parse(stored).user?.role || 'PATIENT'
+  } catch {}
+  return 'PATIENT'
+}
+
 export const appointmentService = {
-  // Get all appointments (filtered by current user or query)
+  // Get all appointments filtered by current logged-in user
   async getAppointments(params?: { status?: string; type?: string; fromDate?: string; toDate?: string }): Promise<Appointment[]> {
     try {
       const res = await api.get<ApiResponse<Appointment[]>>('/appointments', { params })
@@ -210,10 +226,25 @@ export const appointmentService = {
     } catch (err) {
       console.warn('API getAppointments fallback to local', err)
     }
-    return getLocalAppointments()
+    const all = getLocalAppointments()
+    const userId = getCurrentUserId()
+    const role = getCurrentUserRole()
+    return all.filter(a => {
+      if (!userId) return true
+      if (role === 'DOCTOR') {
+        // Match by doctorId or by doctor.userId or doctor.user.id
+        return a.doctorId === userId ||
+          (a.doctor as any)?.userId === userId ||
+          (a.doctor?.user as any)?.id === userId
+      }
+      // PATIENT: match by patientId or patient.userId
+      return a.patientId === userId ||
+        (a.patient as any)?.userId === userId ||
+        (a.patient?.user as any)?.id === userId
+    })
   },
 
-  // Get upcoming appointments
+  // Get upcoming appointments for current user
   async getUpcomingAppointments(): Promise<Appointment[]> {
     try {
       const res = await api.get<ApiResponse<Appointment[]>>('/appointments/upcoming')
@@ -221,11 +252,11 @@ export const appointmentService = {
     } catch (err) {
       console.warn('API getUpcomingAppointments fallback to local', err)
     }
-    const all = getLocalAppointments()
+    const all = await this.getAppointments()
     return all.filter(a => a.status === 'SCHEDULED' || a.status === 'CONFIRMED')
   },
 
-  // Get today's appointments for doctor
+  // Get today's appointments for current user
   async getTodaysAppointments(): Promise<Appointment[]> {
     try {
       const res = await api.get<ApiResponse<Appointment[]>>('/appointments/today')
@@ -233,7 +264,7 @@ export const appointmentService = {
     } catch (err) {
       console.warn('API getTodaysAppointments fallback to local', err)
     }
-    return getLocalAppointments()
+    return this.getAppointments()
   },
 
   // Get appointment by ID
@@ -253,7 +284,6 @@ export const appointmentService = {
     try {
       const res = await api.post<ApiResponse<Appointment>>('/appointments', dto)
       if (res.data?.data) {
-        // Also save to local
         const all = getLocalAppointments()
         all.unshift(res.data.data)
         saveLocalAppointments(all)
@@ -263,11 +293,28 @@ export const appointmentService = {
       console.warn('API createAppointment fallback to local', err)
     }
 
+    // Resolve current patient from session
+    let patientId = 'pat-001'
+    let patientUser: any = null
+    try {
+      const stored = sessionStorage.getItem('swasthyasetu_auth') || localStorage.getItem('swasthyasetu_auth')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        patientId = parsed.user?.id || 'pat-001'
+        patientUser = parsed.user
+      }
+    } catch {}
+
+    // Resolve the actual selected doctor from the doctor list
+    const { doctorService } = await import('./doctorService')
+    const allDoctors = await doctorService.getDoctors()
+    const resolvedDoctor = allDoctors.find(d => (d.id || d._id) === dto.doctorId) || allDoctors[0]
+
     const all = getLocalAppointments()
     const newAppointment: Appointment = {
       id: `apt-${Date.now()}`,
       _id: `apt-${Date.now()}`,
-      patientId: 'pat-001',
+      patientId,
       doctorId: dto.doctorId,
       scheduledDate: dto.scheduledDate,
       scheduledTime: dto.scheduledTime,
@@ -277,40 +324,34 @@ export const appointmentService = {
       notes: dto.notes,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      doctor: {
-        id: dto.doctorId,
-        _id: dto.doctorId,
-        userId: 'u-doc-1',
-        specialization: 'General Physician',
-        qualification: 'MBBS, MD',
-        registrationNumber: 'MCI-2015-84920',
-        experience: 10,
-        consultationFee: 300,
-        teleconsultationEnabled: true,
-        rating: 4.8,
-        totalConsultations: 950,
-        createdAt: '2023-01-01',
-        updatedAt: '2024-01-01',
-        availability: [],
-        user: {
-          id: 'u-doc-1',
-          _id: 'u-doc-1',
-          firstName: 'Dr. Rajesh',
-          lastName: 'Patil',
-          name: 'Dr. Rajesh Patil',
-          email: 'doctor@demo.com',
-          phone: '9876543211',
-          role: 'DOCTOR',
-          preferredLanguage: 'mr',
-          isActive: true,
-          createdAt: '2023-01-01',
-          updatedAt: '2024-01-01',
+      doctor: resolvedDoctor,
+      ...(patientUser && {
+        patient: {
+          id: patientId,
+          _id: patientId,
+          userId: patientUser.id,
+          user: patientUser,
+          dateOfBirth: '',
+          gender: '',
+          riskLevel: 'LOW',
+          address: { village: '', taluka: '', district: '', state: 'Maharashtra', pincode: '' },
+          emergencyContact: { name: '', phone: '', relation: '' },
+          medicalHistory: [],
+          allergies: [],
+          currentMedications: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         },
-      },
+      }),
     }
 
     all.unshift(newAppointment)
     saveLocalAppointments(all)
+
+    // Broadcast so appointments page updates instantly
+    try { new BroadcastChannel('swasthyasetu_records_bus').postMessage({ type: 'NEW_APPOINTMENT', appointment: newAppointment }) } catch {}
+    window.dispatchEvent(new CustomEvent('swasthyasetu:records_sync', { detail: newAppointment }))
+
     return newAppointment
   },
 

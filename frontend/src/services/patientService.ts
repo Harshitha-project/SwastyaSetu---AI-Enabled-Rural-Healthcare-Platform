@@ -126,6 +126,46 @@ export const patientService = {
       console.warn('API listPatients fallback to local', err)
     }
 
+    // Build registered patients from localStorage
+    const registeredPatients: Patient[] = []
+    try {
+      const registered = JSON.parse(localStorage.getItem('swasthyasetu_registered_users') || '[]')
+      registered
+        .filter((u: any) => u.role === 'PATIENT')
+        .forEach((u: any, idx: number) => {
+          registeredPatients.push({
+            id: u.id || `reg-pat-${idx}`,
+            _id: u.id || `reg-pat-${idx}`,
+            userId: u.id,
+            dateOfBirth: '',
+            gender: '',
+            bloodGroup: '',
+            riskLevel: 'LOW',
+            address: { village: '', taluka: '', district: '', state: 'Maharashtra', pincode: '' },
+            emergencyContact: { name: '', phone: '', relation: '' },
+            medicalHistory: [],
+            allergies: [],
+            currentMedications: [],
+            createdAt: u.createdAt || new Date().toISOString(),
+            updatedAt: u.updatedAt || new Date().toISOString(),
+            user: {
+              id: u.id,
+              _id: u.id,
+              firstName: u.firstName,
+              lastName: u.lastName,
+              name: u.name || `${u.firstName} ${u.lastName}`,
+              email: u.email,
+              phone: u.phone || '',
+              role: 'PATIENT',
+              preferredLanguage: 'mr',
+              isActive: true,
+              createdAt: u.createdAt || new Date().toISOString(),
+              updatedAt: u.updatedAt || new Date().toISOString(),
+            },
+          })
+        })
+    } catch {}
+
     const demoList: Patient[] = [
       getLocalPatient(),
       {
@@ -250,7 +290,14 @@ export const patientService = {
       },
     ]
 
-    let resList = demoList
+    // Merge registered + demo, deduplicate by id
+    const seen = new Set<string>()
+    let resList: Patient[] = []
+    for (const p of [...registeredPatients, ...demoList]) {
+      const key = p.id || p._id
+      if (!seen.has(key)) { seen.add(key); resList.push(p) }
+    }
+
     if (params?.riskLevel && params.riskLevel !== 'ALL') {
       resList = resList.filter(p => p.riskLevel === params.riskLevel)
     }

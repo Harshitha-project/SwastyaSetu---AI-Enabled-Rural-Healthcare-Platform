@@ -53,34 +53,39 @@ const BookAppointment: React.FC = () => {
   const [isBooking, setIsBooking] = useState(false)
   const [bookedSuccess, setBookedSuccess] = useState<any>(null)
 
-  // Check location state or URL params for doctorId and reason
+  // Read URL params once — stable refs so effects don't re-run on every render
   const queryParams = new URLSearchParams(location.search)
-  const initialDoctorId = queryParams.get('doctorId') || (location.state as any)?.doctorId
+  const initialDoctorId = queryParams.get('doctorId') || (location.state as any)?.doctorId || ''
   const initialReason = queryParams.get('reason') || (location.state as any)?.reason || ''
 
-  // Load doctors
+  // Load doctors — fix race condition by applying pre-selection AFTER data arrives
   useEffect(() => {
-    if (initialReason && !reason) {
-      setReason(initialReason)
-    }
+    if (initialReason) setReason(initialReason)
+
     doctorService.getDoctors().then(data => {
       setDoctors(data)
-      if (initialDoctorId && data.some(d => (d.id || d._id) === initialDoctorId)) {
-        setSelectedDoctorId(initialDoctorId)
-      } else if (data.length > 0 && !selectedDoctorId) {
-        setSelectedDoctorId(data[0].id || data[0]._id)
+
+      if (initialDoctorId) {
+        const match = data.find(d => (d.id || d._id) === initialDoctorId)
+        if (match) {
+          // Pre-select the recommended doctor and clear specialty filter so it's visible
+          setSelectedDoctorId(initialDoctorId)
+          setSelectedSpecialty('all')
+          return
+        }
       }
+      // Default: select first doctor
+      if (data.length > 0) setSelectedDoctorId(data[0].id || data[0]._id)
     })
-  }, [initialDoctorId])
+  }, []) // run once on mount — initialDoctorId is stable from URL
 
   // Load slots when doctor or date changes
   useEffect(() => {
-    if (selectedDoctorId && selectedDate) {
-      doctorService.getAvailableSlots(selectedDoctorId, selectedDate).then(slots => {
-        setAvailableSlots(slots)
-        if (slots.length > 0) setSelectedSlot(slots[0])
-      })
-    }
+    if (!selectedDoctorId || !selectedDate) return
+    doctorService.getAvailableSlots(selectedDoctorId, selectedDate).then(slots => {
+      setAvailableSlots(slots)
+      setSelectedSlot(slots[0] || '')
+    })
   }, [selectedDoctorId, selectedDate])
 
   const selectedDoctor = doctors.find(d => d.id === selectedDoctorId || d._id === selectedDoctorId)
@@ -179,6 +184,23 @@ const BookAppointment: React.FC = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* AI Recommendation banner — shown when arriving from HealthAssessment */}
+        {initialDoctorId && selectedDoctor && (
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-primary-50/80 dark:bg-primary-950/30 border border-primary-200 dark:border-primary-800 text-sm">
+            <span className="text-xl">🤖</span>
+            <div className="flex-1">
+              <span className="font-semibold text-primary-800 dark:text-primary-200">
+                {isMarathi ? 'एआय शिफारस:' : 'AI Recommended:'}
+              </span>{' '}
+              <span className="text-primary-700 dark:text-primary-300">
+                {(selectedDoctor.user as any)?.name || (selectedDoctor.user as any)?.firstName} — {selectedDoctor.specialization}
+              </span>
+            </div>
+            <button type="button" onClick={() => setSelectedDoctorId(doctors[0]?.id || doctors[0]?._id || '')} className="text-xs text-muted-foreground hover:text-foreground underline">
+              {isMarathi ? 'बदला' : 'Change'}
+            </button>
+          </div>
+        )}
         {/* Step 1: Select Consultation Type */}
         <Card className="border-border/70 shadow-sm">
           <CardHeader className="pb-3">
@@ -247,7 +269,14 @@ const BookAppointment: React.FC = () => {
                 <select
                   id="spec-filter"
                   value={selectedSpecialty}
-                  onChange={e => setSelectedSpecialty(e.target.value)}
+                  onChange={e => {
+                    setSelectedSpecialty(e.target.value)
+                    // If filtering hides the pre-selected doctor, clear the pre-selection
+                    if (e.target.value !== 'all' && selectedDoctor &&
+                      !selectedDoctor.specialization.includes(e.target.value)) {
+                      setSelectedDoctorId('')
+                    }
+                  }}
                   className="h-8 text-xs px-2.5 rounded-md border border-input bg-background"
                 >
                   <option value="all">All Specialties / सर्व</option>

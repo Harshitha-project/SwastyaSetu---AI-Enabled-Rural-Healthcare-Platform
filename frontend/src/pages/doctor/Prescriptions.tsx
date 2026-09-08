@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '../../hooks/useAuth'
 import { recordsService } from '../../services/recordsService'
 import type { Prescription } from '../../types'
 import {
@@ -26,12 +27,29 @@ import {
 
 const DoctorPrescriptions: React.FC = () => {
   const { t, i18n } = useTranslation()
+  const { user } = useAuth()
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
   const [searchQuery, setSearchQuery] = useState('')
 
+  const loadRx = () => recordsService.getPrescriptions().then(setPrescriptions)
+
   useEffect(() => {
-    recordsService.getPrescriptions().then(setPrescriptions)
+    loadRx()
+    // Real-time sync when new prescription is created
+    const handleSync = () => loadRx()
+    window.addEventListener('swasthyasetu:records_sync', handleSync)
+    let channel: BroadcastChannel | null = null
+    try {
+      channel = new BroadcastChannel('swasthyasetu_records_bus')
+      channel.onmessage = (e) => { if (e.data?.type === 'NEW_PRESCRIPTION') loadRx() }
+    } catch {}
+    return () => {
+      window.removeEventListener('swasthyasetu:records_sync', handleSync)
+      channel?.close()
+    }
   }, [])
+
+  const doctorName = user?.name || (user?.firstName ? `Dr. ${user.firstName} ${user.lastName || ''}`.trim() : 'Doctor')
 
   const isMarathi = i18n.language === 'mr'
 
@@ -110,7 +128,7 @@ const DoctorPrescriptions: React.FC = () => {
 
             <CardFooter className="bg-muted/10 border-t border-border/50 p-3 flex justify-between items-center text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <FileCheck className="w-4 h-4 text-emerald-600" /> Digitally signed by Dr. Rajesh Patil
+                <FileCheck className="w-4 h-4 text-emerald-600" /> Digitally signed by {doctorName}
               </span>
               <Button variant="ghost" size="sm" onClick={() => window.print()} className="h-7 text-xs gap-1">
                 <Printer className="w-3.5 h-3.5" />

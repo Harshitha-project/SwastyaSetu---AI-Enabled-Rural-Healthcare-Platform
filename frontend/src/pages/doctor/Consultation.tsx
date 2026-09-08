@@ -43,7 +43,11 @@ import {
   VolumeX,
   Brain,
   AlertTriangle,
+  MessageCircle,
+  MicOff as MicOffIcon,
 } from 'lucide-react'
+import { useVoiceRx } from '../../hooks/useVoiceRx'
+import { smsService } from '../../services/smsService'
 
 interface MedItem {
   name: string
@@ -60,10 +64,10 @@ const DoctorConsultation: React.FC = () => {
 
   // For testing or tab isolation - ensure role is DOCTOR
   const effectiveUser = (user && user.role === 'DOCTOR') ? user : {
-    id: 'demo-doctor-1',
-    firstName: 'Priya',
-    lastName: 'Sharma',
-    name: 'Dr. Priya Sharma',
+    id: user?.id || 'u-doc-1',
+    firstName: user?.firstName || 'Rajesh',
+    lastName: user?.lastName || 'Patil',
+    name: user?.name || 'Dr. Rajesh Patil',
     role: 'DOCTOR' as const,
   }
 
@@ -74,6 +78,15 @@ const DoctorConsultation: React.FC = () => {
   const [isJoining, setIsJoining] = useState(false)
   const [hasJoined, setHasJoined] = useState(false)
   const [showAIPanel, setShowAIPanel] = useState(true)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [smsSent, setSmsSent] = useState<string | null>(null)
+  const [patientPhone, setPatientPhone] = useState('')
+  const [voiceLang, setVoiceLang] = useState<'mr-IN' | 'hi-IN' | 'en-IN'>('mr-IN')
+
+  const {
+    isListening, transcript, interimText, parsed, supported: voiceSupported,
+    startListening, stopListening, clearTranscript,
+  } = useVoiceRx()
 
   // Prescription builder state
   const [diagnosis, setDiagnosis] = useState('')
@@ -148,6 +161,18 @@ const DoctorConsultation: React.FC = () => {
     }
   }, [aiAnalysis, diagnosis])
 
+  // Track online/offline status
+  useEffect(() => {
+    const on = () => {
+      setIsOnline(true)
+      smsService.flushQueue().then(n => { if (n > 0) console.log(`[SMS] Flushed ${n} queued SMS`) })
+    }
+    const off = () => setIsOnline(false)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [])
+
   // Load appointment data
   useEffect(() => {
     if (id) {
@@ -158,6 +183,22 @@ const DoctorConsultation: React.FC = () => {
       })
     }
   }, [id])
+
+  // Re-attach streams when active consultation screen mounts (hasJoined gate)
+  useEffect(() => {
+    if (!hasJoined) return
+    const timer = setTimeout(() => {
+      if (localVideoRef.current && localStream) {
+        localVideoRef.current.srcObject = localStream
+        localVideoRef.current.play().catch(() => {})
+      }
+      if (remoteVideoRef.current && remoteStream) {
+        remoteVideoRef.current.srcObject = remoteStream
+        remoteVideoRef.current.play().catch(() => {})
+      }
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [hasJoined, localStream, remoteStream, localVideoRef, remoteVideoRef])
 
   // Call duration timer
   useEffect(() => {
@@ -182,8 +223,17 @@ const DoctorConsultation: React.FC = () => {
     try {
       await joinRoom()
       setHasJoined(true)
+      // Re-attach streams after state update renders the video elements
+      setTimeout(() => {
+        if (localVideoRef.current && localStream) {
+          localVideoRef.current.srcObject = localStream
+          localVideoRef.current.play().catch(() => {})
+        }
+      }, 300)
       // Broadcast ringing call to patient portal
-      const docFullName = effectiveUser ? `Dr. ${effectiveUser.firstName || ''} ${effectiveUser.lastName || ''}`.trim() : 'Dr. Priya Sharma'
+      const docFullName = effectiveUser
+        ? (effectiveUser.name || `Dr. ${effectiveUser.firstName || ''} ${effectiveUser.lastName || ''}`.trim())
+        : 'Doctor'
       const effectiveRoomId = id || 'default-room'
       callNotificationService.initiateCall({
         doctorName: docFullName,
@@ -234,8 +284,20 @@ const DoctorConsultation: React.FC = () => {
     if (!id) return
     try {
       // 1. Create prescription (also auto-syncs reminders and dispatches events)
+      // Resolve the actual patient user ID from the appointment (patient.user.id or patient.userId)
+      const patientUserId =
+        (appointment?.patient?.user as any)?.id ||
+        (appointment?.patient as any)?.userId ||
+        appointment?.patientId ||
+        'pat-001'
+      const patientName =
+        (appointment?.patient?.user as any)?.name ||
+        `${(appointment?.patient?.user as any)?.firstName || ''} ${(appointment?.patient?.user as any)?.lastName || ''}`.trim() ||
+        'Patient'
+
       await recordsService.createPrescription({
-        patientId: (appointment?.patientId as string) || 'pat-001',
+        patientId: patientUserId,
+        patientName,
         doctorId: effectiveUser?.id || 'doc-001',
         appointmentId: id,
         diagnosis,
@@ -263,8 +325,46 @@ const DoctorConsultation: React.FC = () => {
     }
   }
 
+  // Apply parsed voice result to prescription fields
+  const applyVoiceParsed = () => {
+    if (!parsed) return
+    if (parsed.diagnosis) setDiagnosis(parsed.diagnosis)
+    if (parsed.advice) setClinicalAdvice(parsed.advice)
+    if (parsed.medicineName) {
+      setNewMed(p => ({
+        ...p,
+        name: parsed.medicineName || p.name,
+        dosage: parsed.dosage || p.dosage,
+        frequency: parsed.frequency || p.frequency,
+        duration: parsed.duration || p.duration,
+      }))
+    }
+    clearTranscript()
+  }
+
+  const handleSendSMS = async () => {
+    const phone = patientPhone ||
+      (appointment?.patient?.user as any)?.phone ||
+      '9876543210' // demo fallback
+    const result = await smsService.sendPrescriptionSMS({
+      patientName: patName,
+      patientPhone: phone,
+      doctorName: effectiveUser?.name || `Dr. ${effectiveUser?.lastName}`,
+      diagnosis: diagnosis || 'General consultation',
+      medications,
+      followUpDate,
+      rxId: `rx-${Date.now()}`,
+    })
+    setSmsSent(result.message)
+  }
+
   const isMarathi = i18n.language === 'mr'
-  const patName = peer?.odName || (appointment as any)?.patientName || 'Patient'
+  // Resolve patient name: live peer name > appointment patient > fallback
+  const appointmentPatientName =
+    (appointment?.patient?.user as any)?.name ||
+    `${(appointment?.patient?.user as any)?.firstName || ''} ${(appointment?.patient?.user as any)?.lastName || ''}`.trim() ||
+    null
+  const patName = peer?.odName || appointmentPatientName || 'Patient'
 
   // Pre-call waiting screen
   if (!hasJoined && !isCompleted) {
@@ -432,6 +532,14 @@ const DoctorConsultation: React.FC = () => {
   // Active consultation screen
   return (
     <div className="max-w-7xl mx-auto space-y-4 pb-12 px-4">
+      {/* Offline Banner */}
+      {!isOnline && (
+        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-800 text-xs font-medium">
+          <WifiOff className="w-4 h-4 shrink-0" />
+          <span>No internet — consultation continues locally. Prescription & SMS will auto-sync when connection restores.</span>
+          <span className="ml-auto font-bold">{smsService.getPendingCount()} SMS queued</span>
+        </div>
+      )}
       {/* Top Header */}
       <div className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border shadow-sm">
         <div className="flex items-center gap-3">
@@ -549,12 +657,13 @@ const DoctorConsultation: React.FC = () => {
         <div className="lg:col-span-5 space-y-3">
           {/* Video Stream Frame */}
           <div className="relative aspect-video rounded-2xl bg-slate-950 overflow-hidden shadow-xl border border-slate-800">
-            {/* Remote video - always mounted for ref stability */}
+            {/* Remote video - always rendered, visibility via CSS */}
             <video
               ref={remoteVideoRef}
               autoPlay
               playsInline
-              className={`w-full h-full object-cover ${remoteStream ? 'block' : 'hidden'}`}
+              className="w-full h-full object-cover"
+              style={{ display: remoteStream ? 'block' : 'none' }}
             />
             
             {/* Placeholder when no remote stream */}
@@ -733,6 +842,80 @@ const DoctorConsultation: React.FC = () => {
               </CardDescription>
             </div>
 
+            {/* 🎙️ Voice-to-Prescription (Marathi/Hindi/English) */}
+            {voiceSupported && (
+              <div className="p-2.5 rounded-xl border border-violet-200 bg-violet-50/50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-violet-700">
+                    <Mic className="w-3.5 h-3.5" />
+                    <span className="text-[11px] font-semibold">Voice → Prescription</span>
+                    {isListening && (
+                      <span className="flex items-center gap-1 text-[10px] text-red-600 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+                        सुनत आहे...
+                      </span>
+                    )}
+                  </div>
+                  {/* Language selector */}
+                  <select
+                    value={voiceLang}
+                    onChange={e => setVoiceLang(e.target.value as any)}
+                    className="text-[10px] border border-violet-200 rounded px-1 py-0.5 bg-white text-violet-700"
+                  >
+                    <option value="mr-IN">मराठी</option>
+                    <option value="hi-IN">हिंदी</option>
+                    <option value="en-IN">English</option>
+                  </select>
+                </div>
+
+                {/* Transcript display */}
+                {(transcript || interimText) && (
+                  <div className="bg-white rounded-lg border border-violet-100 p-2 text-[11px] min-h-[36px] text-foreground">
+                    {transcript}
+                    {interimText && <span className="text-muted-foreground italic"> {interimText}</span>}
+                  </div>
+                )}
+
+                {/* Parsed preview */}
+                {parsed && (parsed.medicineName || parsed.diagnosis) && (
+                  <div className="bg-violet-100/60 rounded-lg p-2 text-[10px] space-y-0.5 text-violet-900">
+                    {parsed.diagnosis && <p>🩺 <b>Diagnosis:</b> {parsed.diagnosis}</p>}
+                    {parsed.medicineName && <p>💊 <b>Medicine:</b> {parsed.medicineName}</p>}
+                    {parsed.dosage && <p>📏 <b>Dosage:</b> {parsed.dosage}</p>}
+                    {parsed.frequency && <p>🔁 <b>Frequency:</b> {parsed.frequency}</p>}
+                    {parsed.duration && <p>📅 <b>Duration:</b> {parsed.duration}</p>}
+                  </div>
+                )}
+
+                <div className="flex gap-1.5">
+                  <Button
+                    size="sm"
+                    variant={isListening ? 'destructive' : 'outline'}
+                    onClick={() => isListening ? stopListening() : startListening(voiceLang)}
+                    className="flex-1 h-7 text-[11px] border-violet-300"
+                  >
+                    {isListening
+                      ? <><MicOffIcon className="w-3 h-3 mr-1" />थांबवा</>  
+                      : <><Mic className="w-3 h-3 mr-1" />बोलणे सुरू करा</>}
+                  </Button>
+                  {parsed && (parsed.medicineName || parsed.diagnosis) && (
+                    <Button
+                      size="sm"
+                      onClick={applyVoiceParsed}
+                      className="flex-1 h-7 text-[11px] bg-violet-600 hover:bg-violet-700 text-white"
+                    >
+                      ✓ Rx मध्ये भरा
+                    </Button>
+                  )}
+                  {transcript && (
+                    <Button size="sm" variant="ghost" onClick={clearTranscript} className="h-7 text-[10px] px-2">
+                      ✕
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Diagnosis */}
             <div className="space-y-1">
               <Label className="text-xs font-semibold">Clinical Diagnosis:</Label>
@@ -823,6 +1006,35 @@ const DoctorConsultation: React.FC = () => {
                   className="h-8 text-xs"
                 />
               </div>
+            </div>
+
+            {/* SMS Prescription to Patient's Phone */}
+            <div className="p-2.5 rounded-xl border border-blue-200 bg-blue-50/50 space-y-2">
+              <div className="flex items-center gap-1.5 text-blue-700">
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span className="text-[11px] font-semibold">SMS Prescription to Patient</span>
+                {!isOnline && <span className="ml-auto text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Will queue offline</span>}
+              </div>
+              <Input
+                placeholder="Patient mobile number (10 digits)"
+                value={patientPhone}
+                onChange={e => setPatientPhone(e.target.value)}
+                className="h-7 text-xs"
+                maxLength={10}
+              />
+              {smsSent && (
+                <p className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-1 rounded">{smsSent}</p>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleSendSMS}
+                className="w-full h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
+                disabled={medications.length === 0}
+              >
+                <MessageCircle className="w-3 h-3 mr-1" />
+                {isOnline ? 'Send SMS Rx to Patient' : 'Queue SMS (send when online)'}
+              </Button>
             </div>
 
             <Button

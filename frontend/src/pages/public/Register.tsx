@@ -43,6 +43,11 @@ const Register: React.FC = () => {
     password: '',
     confirmPassword: '',
     role: 'PATIENT',
+    // Doctor-specific fields
+    specialization: '',
+    qualification: '',
+    registrationNumber: '',
+    experience: '',
   });
   const [error, setError] = useState('');
   const [step, setStep] = useState(1);
@@ -123,8 +128,21 @@ const Register: React.FC = () => {
         phone: formData.phone,
         password: formData.password,
         role: formData.role as 'PATIENT' | 'DOCTOR' | 'HEALTH_WORKER',
-      });
-      navigate('/dashboard', { replace: true });
+        ...(formData.role === 'DOCTOR' && {
+          specialization: formData.specialization || 'General Medicine',
+          qualification: formData.qualification || 'MBBS',
+          registrationNumber: formData.registrationNumber,
+          experience: formData.experience ? parseInt(formData.experience) : 1,
+        }),
+      } as any);
+      // Redirect to role-specific dashboard
+      const dashboardMap: Record<string, string> = {
+        PATIENT: '/patient',
+        DOCTOR: '/doctor',
+        HEALTH_WORKER: '/worker',
+        ADMIN: '/admin',
+      }
+      navigate(dashboardMap[formData.role] || '/patient', { replace: true });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Registration failed. Please try again.';
       setError(errorMessage);
@@ -402,6 +420,57 @@ const Register: React.FC = () => {
                           </SelectContent>
                         </Select>
                       </div>
+
+                      {/* Doctor-specific fields */}
+                      {formData.role === 'DOCTOR' && (
+                        <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                          <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Doctor Profile Details</p>
+                          <div className="space-y-2">
+                            <Label className="text-gray-700 text-sm">Specialization</Label>
+                            <Input
+                              name="specialization"
+                              value={formData.specialization}
+                              onChange={handleChange}
+                              placeholder="e.g. General Medicine, Pediatrics"
+                              className="h-10"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-2">
+                              <Label className="text-gray-700 text-sm">Qualification</Label>
+                              <Input
+                                name="qualification"
+                                value={formData.qualification}
+                                onChange={handleChange}
+                                placeholder="e.g. MBBS, MD"
+                                className="h-10"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-gray-700 text-sm">Experience (yrs)</Label>
+                              <Input
+                                name="experience"
+                                type="number"
+                                value={formData.experience}
+                                onChange={handleChange}
+                                placeholder="5"
+                                className="h-10"
+                                min="0"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-gray-700 text-sm">Medical Registration No.</Label>
+                            <Input
+                              name="registrationNumber"
+                              value={formData.registrationNumber}
+                              onChange={handleChange}
+                              placeholder="e.g. MMC-2018-12345"
+                              className="h-10"
+                            />
+                          </div>
+                        </div>
+                      )}
 
                       <Button 
                         type="button" 

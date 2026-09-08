@@ -111,6 +111,22 @@ const PatientTeleconsultation: React.FC = () => {
     }
   }, [id])
 
+  // Re-attach streams when active consultation screen mounts (hasJoined gate)
+  useEffect(() => {
+    if (!hasJoined) return
+    const timer = setTimeout(() => {
+      if (localVideoRef.current && localStream) {
+        localVideoRef.current.srcObject = localStream
+        localVideoRef.current.play().catch(() => {})
+      }
+      if (remoteVideoRef.current && remoteStream) {
+        remoteVideoRef.current.srcObject = remoteStream
+        remoteVideoRef.current.play().catch(() => {})
+      }
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [hasJoined, localStream, remoteStream, localVideoRef, remoteVideoRef])
+
   // Call duration timer
   useEffect(() => {
     if (!hasJoined || callEnded) return
@@ -134,6 +150,13 @@ const PatientTeleconsultation: React.FC = () => {
     try {
       await joinRoom()
       setHasJoined(true)
+      // Re-attach streams after state update renders the video elements
+      setTimeout(() => {
+        if (localVideoRef.current && localStream) {
+          localVideoRef.current.srcObject = localStream
+          localVideoRef.current.play().catch(() => {})
+        }
+      }, 300)
     } catch (err) {
       console.error('Failed to join call:', err)
     } finally {
@@ -154,7 +177,12 @@ const PatientTeleconsultation: React.FC = () => {
   }
 
   const isMarathi = i18n.language === 'mr'
-  const doctorName = peer?.odName || (appointment as any)?.doctorName || `Dr. Rajesh Patil`
+  // Resolve doctor name: live peer name > appointment doctor > fallback
+  const appointmentDoctorName =
+    (appointment?.doctor?.user as any)?.name ||
+    `${(appointment?.doctor?.user as any)?.firstName || ''} ${(appointment?.doctor?.user as any)?.lastName || ''}`.trim() ||
+    null
+  const doctorName = peer?.odName || appointmentDoctorName || 'Dr. Rajesh Patil'
 
   // Pre-call waiting screen
   if (!hasJoined && !callEnded) {
@@ -373,12 +401,13 @@ const PatientTeleconsultation: React.FC = () => {
         <div className="lg:col-span-2 space-y-3">
           {/* Main Video */}
           <div className="relative aspect-video rounded-2xl bg-slate-950 overflow-hidden shadow-xl border border-slate-800">
-            {/* Remote video - always mounted, visibility controlled by CSS */}
+            {/* Remote video - always rendered, visibility via CSS */}
             <video
               ref={remoteVideoRef}
               autoPlay
               playsInline
-              className={`w-full h-full object-cover ${remoteStream ? 'block' : 'hidden'}`}
+              className="w-full h-full object-cover"
+              style={{ display: remoteStream ? 'block' : 'none' }}
             />
             
             {/* Placeholder when no remote stream */}

@@ -68,12 +68,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mockUser: User
     if (role === 'DOCTOR') {
       mockUser = {
-        id: 'demo-doctor-1',
-        name: 'Dr. Priya Sharma',
-        firstName: 'Priya',
-        lastName: 'Sharma',
-        email: 'doctor@swasthyasetu.org',
-        phone: '+91 98220 54321',
+        id: 'u-doc-1',
+        name: 'Dr. Rajesh Patil',
+        firstName: 'Rajesh',
+        lastName: 'Patil',
+        email: 'doctor@demo.com',
+        phone: '+91 98765 43211',
         role: 'DOCTOR',
         isVerified: true,
         preferredLanguage: 'mr',
@@ -110,12 +110,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } else {
       mockUser = {
-        id: 'demo-patient-1',
-        name: 'Ramesh Patil',
-        firstName: 'Ramesh',
-        lastName: 'Patil',
-        email: 'patient@swasthyasetu.org',
-        phone: '+91 98220 12345',
+        id: 'u-pat-1',
+        name: 'Priya Sharma',
+        firstName: 'Priya',
+        lastName: 'Sharma',
+        email: 'patient@demo.com',
+        phone: '+91 98765 43210',
         role: 'PATIENT',
         isVerified: true,
         preferredLanguage: 'mr',

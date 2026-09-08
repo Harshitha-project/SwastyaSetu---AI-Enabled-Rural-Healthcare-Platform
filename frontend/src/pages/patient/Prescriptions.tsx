@@ -207,6 +207,60 @@ const mockPrescriptions: Prescription[] = [
   },
 ]
 
+const STORAGE_KEY = 'swasthyasetu_prescriptions'
+
+// Merge localStorage prescriptions (from doctor) with the rich mock format
+function loadFromStorage(): Prescription[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    const stored = JSON.parse(raw)
+    // Get logged-in patient ID for filtering
+    let userId = ''
+    try {
+      const auth = sessionStorage.getItem('swasthyasetu_auth') || localStorage.getItem('swasthyasetu_auth')
+      if (auth) userId = JSON.parse(auth).user?.id || ''
+    } catch {}
+    return stored
+      .filter((rx: any) => !userId || rx.patientId === userId || rx.patientId === 'pat-001')
+      .map((rx: any): Prescription => ({
+      id: rx.id || rx._id,
+      prescriptionNumber: rx.prescriptionNumber || `RX-${(rx.id || rx._id || '').slice(-8).toUpperCase()}`,
+      patientId: rx.patientId || '',
+      patientName: rx.patientName || 'Patient',
+      patientAge: rx.patientAge || 0,
+      patientGender: rx.patientGender || '',
+      patientPhone: rx.patientPhone || '',
+      patientAddress: rx.patientAddress || '',
+      doctorId: rx.doctorId || '',
+      doctorName: rx.doctorName || 'Doctor',
+      doctorQualification: rx.doctorQualification || 'MBBS',
+      doctorSpecialization: rx.doctorSpecialization || 'General Medicine',
+      doctorRegistrationNumber: rx.doctorRegistrationNumber || '',
+      facilityName: rx.facilityName || 'SwasthyaSetu Healthcare',
+      diagnosis: rx.diagnosis || 'Clinical consultation',
+      symptoms: rx.symptoms || [],
+      medications: (rx.medications || []).map((m: any, i: number) => ({
+        id: m.id || `med-${i}`,
+        name: m.name,
+        genericName: m.genericName,
+        dosage: m.dosage || '',
+        frequency: m.frequency || 'once_daily',
+        duration: m.duration || '',
+        route: m.route || 'Oral',
+        instructions: m.instructions,
+      })),
+      advice: rx.notes || rx.advice,
+      followUpDate: rx.followUpDate,
+      validUntil: rx.validUntil || new Date(Date.now() + 30 * 86400000).toISOString(),
+      createdAt: rx.createdAt || new Date().toISOString(),
+      vitals: rx.vitals,
+    }))
+  } catch {
+    return []
+  }
+}
+
 const Prescriptions: React.FC = () => {
   const { t, i18n } = useTranslation()
   const { user } = useAuth()
@@ -224,6 +278,23 @@ const Prescriptions: React.FC = () => {
 
   useEffect(() => {
     loadPrescriptions()
+
+    // Real-time listener: update instantly when doctor issues a prescription
+    const handleSync = () => loadPrescriptions()
+    window.addEventListener('swasthyasetu:records_sync', handleSync)
+
+    let channel: BroadcastChannel | null = null
+    try {
+      channel = new BroadcastChannel('swasthyasetu_records_bus')
+      channel.onmessage = (e) => {
+        if (e.data?.type === 'NEW_PRESCRIPTION') loadPrescriptions()
+      }
+    } catch {}
+
+    return () => {
+      window.removeEventListener('swasthyasetu:records_sync', handleSync)
+      channel?.close()
+    }
   }, [])
 
   // Check for prescription ID in URL to open view dialog
@@ -241,23 +312,28 @@ const Prescriptions: React.FC = () => {
   const loadPrescriptions = async () => {
     setIsLoading(true)
     try {
-      // Try to load from API first
+      // 1. Always load from localStorage first (doctor-issued prescriptions)
+      const localRx = loadFromStorage()
+
+      // 2. Try API
+      let apiRx: Prescription[] = []
       if (user?.patientId) {
-        const data = await prescriptionService.getPatientPrescriptions(user.patientId)
-        if (data.length > 0) {
-          setPrescriptions(data)
-        } else {
-          // Use mock data for demonstration
-          setPrescriptions(mockPrescriptions)
-        }
-      } else {
-        // Use mock data for demonstration
-        setPrescriptions(mockPrescriptions)
+        try {
+          apiRx = await prescriptionService.getPatientPrescriptions(user.patientId)
+        } catch {}
       }
+
+      // 3. Merge: API first, then localStorage, then mock — deduplicate by id
+      const seen = new Set<string>()
+      const merged: Prescription[] = []
+      for (const rx of [...apiRx, ...localRx, ...mockPrescriptions]) {
+        const key = rx.id || rx.prescriptionNumber
+        if (!seen.has(key)) { seen.add(key); merged.push(rx) }
+      }
+      setPrescriptions(merged)
     } catch (error) {
       console.error('Error loading prescriptions:', error)
-      // Fallback to mock data
-      setPrescriptions(mockPrescriptions)
+      setPrescriptions([...loadFromStorage(), ...mockPrescriptions])
     } finally {
       setIsLoading(false)
     }

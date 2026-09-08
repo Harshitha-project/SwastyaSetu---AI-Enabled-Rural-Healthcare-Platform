@@ -45,8 +45,9 @@ const DoctorDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
 
   const handleStartCall = () => {
+    const doctorFullName = user?.name || (user?.firstName ? `Dr. ${user.firstName} ${user.lastName || ''}`.trim() : 'Doctor')
     callNotificationService.initiateCall({
-      doctorName: user?.name || (user?.firstName ? `Dr. ${user.firstName} ${user.lastName || ''}` : 'Dr. Priya Sharma'),
+      doctorName: doctorFullName,
       doctorSpecialty: 'Senior Telemedicine Consultant',
       appointmentId: 'apt-101',
       roomId: 'room-apt-101',

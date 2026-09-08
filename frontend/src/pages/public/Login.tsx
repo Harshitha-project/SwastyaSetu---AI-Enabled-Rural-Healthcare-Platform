@@ -36,13 +36,7 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    setError('');
-  };
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,21 +49,28 @@ const Login: React.FC = () => {
 
     try {
       await login({ email: formData.email, password: formData.password });
-      navigate(from, { replace: true });
+      // Redirect based on role from stored auth
+      const stored = sessionStorage.getItem('swasthyasetu_auth') || localStorage.getItem('swasthyasetu_auth')
+      let role = 'PATIENT'
+      if (stored) { try { role = JSON.parse(stored).user?.role || 'PATIENT' } catch {} }
+      const dashboardMap: Record<string, string> = {
+        PATIENT: '/patient', DOCTOR: '/doctor', HEALTH_WORKER: '/worker', ADMIN: '/admin'
+      }
+      navigate(from || dashboardMap[role] || '/patient', { replace: true });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed. Please try again.';
       setError(errorMessage);
     }
   };
 
-  const fillDemoCredentials = (role: string) => {
-    const credentials: Record<string, { email: string; password: string }> = {
-      patient: { email: 'patient@demo.com', password: 'password123' },
-      doctor: { email: 'doctor@demo.com', password: 'password123' },
-      worker: { email: 'worker@demo.com', password: 'password123' },
-      admin: { email: 'admin@demo.com', password: 'password123' },
-    };
-    setFormData(credentials[role]);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    setError('');
+  };
+
+  const fillDemoCredentials = (email: string) => {
+    setFormData({ email, password: 'password123' });
     setError('');
   };
 
@@ -304,25 +305,49 @@ const Login: React.FC = () => {
                 </span>
               </motion.div>
 
-              <motion.div variants={itemVariants} className="grid grid-cols-2 gap-2">
-                {[
-                  { role: 'patient', icon: Users, label: 'Patient' },
-                  { role: 'doctor', icon: Stethoscope, label: 'Doctor' },
-                  { role: 'worker', icon: Shield, label: 'Health Worker' },
-                  { role: 'admin', icon: Building2, label: 'Admin' },
-                ].map(({ role, icon: Icon, label }) => (
-                  <Button
-                    key={role}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fillDemoCredentials(role)}
+              <motion.div variants={itemVariants} className="space-y-2">
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide text-center">Patients</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { email: 'patient@demo.com',  label: 'Priya Sharma' },
+                    { email: 'patient2@demo.com', label: 'Ramesh Patil' },
+                    { email: 'patient3@demo.com', label: 'Sunita Jadhav' },
+                    { email: 'patient4@demo.com', label: 'Amit Deshmukh' },
+                  ].map(({ email, label }) => (
+                    <Button key={email} type="button" variant="outline" size="sm"
+                      onClick={() => fillDemoCredentials(email)}
+                      className="h-9 text-xs font-medium"
+                      leftIcon={<Users className="h-3.5 w-3.5" />}
+                    >{label}</Button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide text-center pt-1">Doctors</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { email: 'doctor@demo.com',  label: 'Dr. Rajesh Patil' },
+                    { email: 'doctor2@demo.com', label: 'Dr. Ananya Deshmukh' },
+                    { email: 'doctor3@demo.com', label: 'Dr. Sunanda Kulkarni' },
+                    { email: 'doctor4@demo.com', label: 'Dr. Manoj Shinde' },
+                  ].map(({ email, label }) => (
+                    <Button key={email} type="button" variant="outline" size="sm"
+                      onClick={() => fillDemoCredentials(email)}
+                      className="h-9 text-xs font-medium"
+                      leftIcon={<Stethoscope className="h-3.5 w-3.5" />}
+                    >{label}</Button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <Button type="button" variant="outline" size="sm"
+                    onClick={() => fillDemoCredentials('worker@demo.com')}
                     className="h-9 text-xs font-medium"
-                    leftIcon={<Icon className="h-3.5 w-3.5" />}
-                  >
-                    {label}
-                  </Button>
-                ))}
+                    leftIcon={<Shield className="h-3.5 w-3.5" />}
+                  >Health Worker</Button>
+                  <Button type="button" variant="outline" size="sm"
+                    onClick={() => fillDemoCredentials('admin@demo.com')}
+                    className="h-9 text-xs font-medium"
+                    leftIcon={<Building2 className="h-3.5 w-3.5" />}
+                  >Admin</Button>
+                </div>
               </motion.div>
 
               <motion.p variants={itemVariants} className="text-center text-sm text-gray-600">

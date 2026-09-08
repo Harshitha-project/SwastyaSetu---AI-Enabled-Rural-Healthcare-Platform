@@ -22,29 +22,57 @@ export const authService = {
       console.warn('Backend login endpoint unavailable, using resilient demo session:', err)
     }
 
-    // Demo / offline fallback
-    let role: User['role'] = 'PATIENT'
-    let name = 'Ramesh Patil'
-    let id = 'demo-patient-1'
-
+    // Demo / offline fallback — maps each demo email to its correct identity
     const emailLower = (credentials.email || '').toLowerCase()
-    if (emailLower.includes('doctor')) {
-      role = 'DOCTOR'
-      name = 'Dr. Priya Sharma'
-      id = 'demo-doctor-1'
+
+    // Doctor accounts — IDs must match DEMO_DOCTORS in doctorService.ts
+    const DOCTOR_MAP: Record<string, { id: string; name: string; firstName: string; lastName: string; docId: string }> = {
+      'doctor@demo.com':  { id: 'u-doc-1', name: 'Dr. Rajesh Patil',    firstName: 'Rajesh',  lastName: 'Patil',    docId: 'doc-001' },
+      'doctor2@demo.com': { id: 'u-doc-2', name: 'Dr. Ananya Deshmukh', firstName: 'Ananya',  lastName: 'Deshmukh', docId: 'doc-002' },
+      'doctor3@demo.com': { id: 'u-doc-3', name: 'Dr. Sunanda Kulkarni',firstName: 'Sunanda', lastName: 'Kulkarni', docId: 'doc-003' },
+      'doctor4@demo.com': { id: 'u-doc-4', name: 'Dr. Manoj Shinde',    firstName: 'Manoj',   lastName: 'Shinde',   docId: 'doc-004' },
+    }
+
+    // Patient accounts
+    const PATIENT_MAP: Record<string, { id: string; name: string; firstName: string; lastName: string }> = {
+      'patient@demo.com':  { id: 'u-pat-1', name: 'Priya Sharma',   firstName: 'Priya',  lastName: 'Sharma'  },
+      'patient2@demo.com': { id: 'u-pat-2', name: 'Ramesh Patil',   firstName: 'Ramesh', lastName: 'Patil'   },
+      'patient3@demo.com': { id: 'u-pat-3', name: 'Sunita Jadhav',  firstName: 'Sunita', lastName: 'Jadhav'  },
+      'patient4@demo.com': { id: 'u-pat-4', name: 'Amit Deshmukh',  firstName: 'Amit',   lastName: 'Deshmukh'},
+    }
+
+    let role: User['role'] = 'PATIENT'
+    let id = 'u-pat-1'
+    let name = 'Priya Sharma'
+    let firstName = 'Priya'
+    let lastName = 'Sharma'
+
+    if (DOCTOR_MAP[emailLower]) {
+      const d = DOCTOR_MAP[emailLower]
+      role = 'DOCTOR'; id = d.id; name = d.name; firstName = d.firstName; lastName = d.lastName
+    } else if (PATIENT_MAP[emailLower]) {
+      const p = PATIENT_MAP[emailLower]
+      role = 'PATIENT'; id = p.id; name = p.name; firstName = p.firstName; lastName = p.lastName
     } else if (emailLower.includes('worker') || emailLower.includes('asha')) {
-      role = 'HEALTH_WORKER'
-      name = 'Sunita Kadam (ASHA)'
-      id = 'demo-worker-1'
+      role = 'HEALTH_WORKER'; id = 'demo-worker-1'; name = 'Sunita Kadam (ASHA)'; firstName = 'Sunita'; lastName = 'Kadam'
     } else if (emailLower.includes('admin')) {
-      role = 'ADMIN'
-      name = 'Maharashtra Health Admin'
-      id = 'demo-admin-1'
+      role = 'ADMIN'; id = 'demo-admin-1'; name = 'Maharashtra Health Admin'; firstName = 'State'; lastName = 'Admin'
+    } else {
+      // Check registered users in localStorage
+      try {
+        const registered = JSON.parse(localStorage.getItem('swasthyasetu_registered_users') || '[]')
+        const found = registered.find((u: any) => u.email.toLowerCase() === emailLower)
+        if (found) {
+          role = found.role; id = found.id; name = found.name; firstName = found.firstName; lastName = found.lastName
+        }
+      } catch {}
     }
 
     const fallbackUser: User = {
       id,
       name,
+      firstName,
+      lastName,
       email: credentials.email,
       phone: '+91 98220 12345',
       role,
@@ -71,9 +99,13 @@ export const authService = {
       console.warn('Backend register endpoint unavailable, using demo registration:', err)
     }
 
+    const userId = `user-${Date.now()}`
+    const fullName = `${data.firstName} ${data.lastName}`
     const newUser: User = {
-      id: `user-${Date.now()}`,
-      name: data.name,
+      id: userId,
+      name: fullName,
+      firstName: data.firstName,
+      lastName: data.lastName,
       email: data.email,
       phone: data.phone,
       role: data.role as User['role'],
@@ -83,38 +115,44 @@ export const authService = {
       updatedAt: new Date().toISOString(),
     }
 
-    // If a doctor registered, register their clinical profile so patients can see and choose them
+    // Persist registered user so they can log in again
+    try {
+      const registered = JSON.parse(localStorage.getItem('swasthyasetu_registered_users') || '[]')
+      registered.unshift({ ...newUser, password: data.password })
+      localStorage.setItem('swasthyasetu_registered_users', JSON.stringify(registered))
+    } catch {}
+
+    // If a doctor registered, add their clinical profile to the doctor list
     if (data.role === 'DOCTOR') {
       try {
-        const docName = data.name.startsWith('Dr.') ? data.name : `Dr. ${data.name}`
+        const docName = fullName.startsWith('Dr.') ? fullName : `Dr. ${fullName}`
+        const docId = `doc-${userId}`
         const customDoc = {
-          id: `doc-${newUser.id}`,
-          _id: `doc-${newUser.id}`,
+          id: docId,
+          _id: docId,
           userId: newUser.id,
-          specialization: 'General Medicine & Teleconsultation',
-          qualification: 'MBBS, MD',
-          registrationNumber: `MMC-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
-          experience: 6,
-          consultationFee: 250,
+          specialization: (data as any).specialization || 'General Medicine & Teleconsultation',
+          qualification: (data as any).qualification || 'MBBS, MD',
+          registrationNumber: (data as any).registrationNumber || `MMC-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
+          experience: (data as any).experience || 5,
+          consultationFee: (data as any).consultationFee || 250,
           teleconsultationEnabled: true,
           rating: 5.0,
           totalConsultations: 0,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           availability: [
-            { day: 'Monday', startTime: '09:00 AM', endTime: '01:00 PM', maxAppointments: 10 },
+            { day: 'Monday',    startTime: '09:00 AM', endTime: '01:00 PM', maxAppointments: 10 },
             { day: 'Wednesday', startTime: '09:00 AM', endTime: '01:00 PM', maxAppointments: 10 },
-            { day: 'Friday', startTime: '02:00 PM', endTime: '06:00 PM', maxAppointments: 10 },
+            { day: 'Friday',    startTime: '02:00 PM', endTime: '06:00 PM', maxAppointments: 10 },
           ],
-          user: {
-            ...newUser,
-            name: docName,
-          },
+          user: { ...newUser, name: docName },
         }
-        const existing = localStorage.getItem('swasthyasetu_custom_doctors')
-        const list = existing ? JSON.parse(existing) : []
-        list.unshift(customDoc)
-        localStorage.setItem('swasthyasetu_custom_doctors', JSON.stringify(list))
+        const existing = JSON.parse(localStorage.getItem('swasthyasetu_custom_doctors') || '[]')
+        existing.unshift(customDoc)
+        localStorage.setItem('swasthyasetu_custom_doctors', JSON.stringify(existing))
+        // Broadcast so doctor list updates in any open tab
+        try { new BroadcastChannel('swasthyasetu_records_bus').postMessage({ type: 'NEW_DOCTOR', doctor: customDoc }) } catch {}
       } catch (e) {
         console.warn('Could not cache registered doctor', e)
       }
